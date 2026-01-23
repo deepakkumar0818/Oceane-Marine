@@ -1,0 +1,23 @@
+"use client";
+import Link from "next/link";
+
+export default function GoToDashBoardButton({
+  href = "/dashboard",
+  label = "← Dashboard",
+  className = "",
+  offsetLeftPx = 316, // sidebar width (300) + gap (16)
+  offsetTopPx = 10, // small gap from top to avoid overlap
+}) {
+  return (
+    <Link
+      href={href}
+      style={{ left: offsetLeftPx, top: offsetTopPx }}
+      className={`absolute z-[60] inline-flex items-center gap-1.5 px-3.5 py-2
+                  rounded-xl border border-white/20 bg-white/10 hover:bg-white/15
+                  text-white text-sm font-semibold shadow-lg shadow-black/25
+                  backdrop-blur-md transition duration-200 hover:translate-y-[1px] ${className}`}
+    >
+      {label}
+    </Link>
+  );
+}

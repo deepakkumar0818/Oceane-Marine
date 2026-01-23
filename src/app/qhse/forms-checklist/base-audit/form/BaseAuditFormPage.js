@@ -1,0 +1,421 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function BaseAuditFormPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get("edit");
+  const fileInputRef = useRef(null);
+  const [form, setForm] = useState({
+    description: "",
+    uploadedBy: "",
+  });
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [existingReport, setExistingReport] = useState(null);
+
+  // Fetch existing report data if editing
+  useEffect(() => {
+    if (editId) {
+      const fetchReport = async () => {
+        setLoading(true);
+        try {
+          const res = await fetch(`/api/qhse/form-checklist/base-audit/list`);
+          const data = await res.json();
+          if (res.ok && data.data) {
+            const report = data.data.find((r) => r._id === editId);
+            if (report) {
+              setExistingReport(report);
+              setForm({
+                description: report.description || "",
+                uploadedBy: report.uploadedBy?.name || "",
+              });
+            } else {
+              setError("Report not found");
+            }
+          } else {
+            setError("Failed to load report data");
+          }
+        } catch (err) {
+          setError(err.message || "Failed to load report data");
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchReport();
+    }
+  }, [editId]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      // Validate file size (max 25MB)
+      if (selectedFile.size > 25 * 1024 * 1024) {
+        setError("File size exceeds 25MB limit");
+        return;
+      }
+
+      setFile(selectedFile);
+      setError("");
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      if (droppedFile.size > 25 * 1024 * 1024) {
+        setError("File size exceeds 25MB limit");
+        return;
+      }
+      setFile(droppedFile);
+      setError("");
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!file) {
+      setError("Please select a file to upload");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (!form.uploadedBy?.trim()) {
+      setError("Please enter your name");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("description", form.description?.trim() || "");
+      formData.append("uploadedBy", form.uploadedBy.trim());
+
+      const res = await fetch("/api/qhse/form-checklist/base-audit/create", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload file");
+      }
+
+      setSuccess(`File uploaded successfully! Version: ${data.version}`);
+      setFile(null);
+      setForm({
+        description: "",
+        uploadedBy: "",
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        router.push("/qhse/forms-checklist/base-audit/list");
+      }, 2000);
+    } catch (err) {
+      setError(err.message);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 ml-72 pr-4">
+      <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
+        <header className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
+              QHSE / Forms & Checklist / Base Audit
+            </p>
+            <h1 className="text-2xl font-bold">
+              {editId ? "Update Base Audit Report" : "STS Base Audit Report"}
+            </h1>
+            <p className="text-xs text-slate-200 mt-1">
+              {editId
+                ? "Upload updated file to create a new version. Current version will be preserved."
+                : "Upload base audit report file. Version will be auto-generated."}
+            </p>
+          </div>
+          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+            <Link
+              href="/qhse/forms-checklist/base-audit/form"
+              className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
+            >
+              Base Audit Form
+            </Link>
+            <Link
+              href="/qhse/forms-checklist/base-audit/list"
+              className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+            >
+              Base Audit List
+            </Link>
+          </div>
+        </header>
+
+        {error && (
+          <div className="bg-red-950/40 border border-red-500/40 rounded-xl px-4 py-3 text-red-200 text-sm font-medium">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl px-4 py-3 text-emerald-200 text-sm font-medium">
+            {success}
+          </div>
+        )}
+
+        {loading && (
+          <div className="bg-blue-950/40 border border-blue-500/40 rounded-xl px-4 py-3 text-blue-200 text-sm font-medium">
+            Loading report data...
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <section className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-6">
+            <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3">
+              Basic Information
+            </h2>
+
+            {existingReport && (
+              <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm">
+                <p className="text-sky-200">
+                  <span className="font-semibold">Current Version:</span> v
+                  {existingReport.version}
+                </p>
+                <p className="text-sky-300/80 text-xs mt-1">
+                  Uploading a new file will create version{" "}
+                  {(Number.parseFloat(existingReport.version) + 0.1).toFixed(1)}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="uploadedBy"
+                  className="block text-sm font-medium text-white/90 mb-2"
+                >
+                  Uploaded By <span className="text-red-400">*</span>
+                </label>
+                <input
+                  id="uploadedBy"
+                  type="text"
+                  name="uploadedBy"
+                  value={form.uploadedBy}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  placeholder="Enter your name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-medium text-white/90 mb-2"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  placeholder="Enter description (optional)"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* File Upload Section */}
+          <section className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-6">
+            <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3">
+              File Upload
+            </h2>
+
+            <div className="space-y-4">
+              {!file ? (
+                <div
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-white/20 rounded-xl p-12 text-center hover:border-sky-500/50 transition cursor-pointer bg-white/5"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-500/20 border border-sky-500/50">
+                      <svg
+                        className="h-8 w-8 text-sky-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white mb-1">
+                        Click to upload or drag and drop
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Maximum file size: 25MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="shrink-0">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-sky-500/20 border border-sky-500/50">
+                          <svg
+                            className="h-6 w-6 text-sky-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="shrink-0 ml-4 p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition"
+                      aria-label="Remove file"
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition"
+                  >
+                    Change File
+                  </button>
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileSelect}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+              />
+            </div>
+          </section>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">
+            <Link
+              href="/qhse/forms-checklist/base-audit/list"
+              className="px-6 py-3 rounded-lg border border-white/20 bg-white/5 text-white font-medium hover:bg-white/10 transition"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={
+                uploading || loading || !file || !form.uploadedBy?.trim()
+              }
+              className="px-6 py-3 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading
+                ? editId
+                  ? "Creating New Version..."
+                  : "Uploading..."
+                : editId
+                ? "Create New Version"
+                : "Upload File"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
