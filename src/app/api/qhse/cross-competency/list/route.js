@@ -16,6 +16,7 @@ export async function GET(req) {
     const status = searchParams.get("status");
     const latestOnly = searchParams.get("latestOnly") !== "false";
     const search = searchParams.get("search");
+    const year = searchParams.get("year");
 
     /* =========================
        BUILD FILTER
@@ -28,6 +29,14 @@ export async function GET(req) {
 
     if (status) {
       filter.status = status;
+    }
+
+    if (year) {
+      const yearNum = Number.parseInt(year, 10);
+      filter.evaluationDate = {
+        $gte: new Date(`${yearNum}-01-01T00:00:00.000Z`),
+        $lte: new Date(`${yearNum}-12-31T23:59:59.999Z`),
+      };
     }
 
     if (search && search.trim()) {
@@ -54,6 +63,20 @@ export async function GET(req) {
       PoacCrossCompetency.countDocuments(filter),
     ]);
 
+    // Get available years from all forms
+    const allForms = await PoacCrossCompetency.find({
+      evaluationDate: { $exists: true, $ne: null },
+    })
+      .select("evaluationDate")
+      .lean();
+    const years = [
+      ...new Set(
+        allForms
+          .map((f) => new Date(f.evaluationDate).getFullYear())
+          .filter((y) => !Number.isNaN(y))
+      ),
+    ].sort((a, b) => b - a);
+
     /* =========================
        RESPONSE
        ========================= */
@@ -65,6 +88,7 @@ export async function GET(req) {
         total,
         totalPages: Math.ceil(total / limit),
         data,
+        years: years.length > 0 ? years : [new Date().getFullYear()],
       },
       { status: 200 }
     );

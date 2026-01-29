@@ -395,7 +395,12 @@ export default function QhseSidebar() {
                           ) &&
                           searchParams?.get("from") === "list";
 
+                        // Special handling for equipment-base-stock-level: highlight when on any of its pages (form, list, admin)
+                        const isEquipmentBaseStock = sub.key === "equipment-base-stock-level" &&
+                          pathname.startsWith("/qhse/forms-checklist/equipment-base-stock-level");
+                        
                         let isActiveSub =
+                          isEquipmentBaseStock ||
                           pathname === sub.href ||
                           pathname.startsWith(sub.href + "/") ||
                           (isOnMainPage &&

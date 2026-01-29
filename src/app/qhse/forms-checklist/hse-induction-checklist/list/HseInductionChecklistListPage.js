@@ -98,7 +98,19 @@ const jobSpecificChecklistQuestions = {
     "Procedures for safely loading/unloading and handling of equipment",
 };
 
+// Generate dynamic years
+function getYears() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = currentYear - 2; i < currentYear; i++) years.push(i);
+  for (let i = currentYear; i <= currentYear + 5; i++) years.push(i);
+  return years;
+}
+
 export default function HseInductionChecklistListPage() {
+  const currentYear = new Date().getFullYear();
+  const initialYears = getYears();
+  
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -109,14 +121,41 @@ export default function HseInductionChecklistListPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [formToReject, setFormToReject] = useState(null);
   const [filter, setFilter] = useState("pending"); // "pending", "approved", "rejected", "all"
+  const [availableYears, setAvailableYears] = useState(initialYears);
+  const [loadingYears, setLoadingYears] = useState(true);
+  const [year, setYear] = useState(currentYear);
+
+  // Fetch available years
+  useEffect(() => {
+    const loadYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch("/api/qhse/form-checklist/hse-induction-checklist/list");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.years)) {
+          const merged = Array.from(
+            new Set([...initialYears, ...data.years])
+          ).sort((a, b) => b - a);
+          setAvailableYears(merged);
+          if (merged.length > 0 && !merged.includes(year)) {
+            setYear(merged[0]);
+          }
+        }
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    loadYears();
+  }, []);
 
   const fetchForms = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        "/api/qhse/form-checklist/hse-induction-checklist/list"
-      );
+      const url = year 
+        ? `/api/qhse/form-checklist/hse-induction-checklist/list?year=${year}`
+        : "/api/qhse/form-checklist/hse-induction-checklist/list";
+      const res = await fetch(url);
 
       // Check if response is JSON
       const contentType = res.headers.get("content-type");
@@ -140,7 +179,7 @@ export default function HseInductionChecklistListPage() {
 
   useEffect(() => {
     fetchForms();
-  }, []);
+  }, [year]);
 
   // Filter forms based on selected filter
   const filteredForms = forms.filter((form) => {
@@ -263,7 +302,7 @@ export default function HseInductionChecklistListPage() {
     <>
       <div className="flex-1 ml-72 pr-4">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-          <header className="flex items-center gap-4">
+          <header className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
@@ -274,6 +313,29 @@ export default function HseInductionChecklistListPage() {
                   View all HSE induction checklist reports
                 </p>
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                Year
+              </span>
+              <select
+                className="theme-select rounded-full px-3 py-1 text-xs tracking-widest uppercase"
+                value={year || ""}
+                onChange={(e) => setYear(Number(e.target.value))}
+                disabled={loadingYears || availableYears.length === 0}
+              >
+                {loadingYears ? (
+                  <option>Loading...</option>
+                ) : availableYears.length === 0 ? (
+                  <option>No data</option>
+                ) : (
+                  availableYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
           </header>
 

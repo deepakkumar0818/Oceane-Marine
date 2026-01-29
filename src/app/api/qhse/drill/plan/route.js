@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import DrillPlan from "@/lib/mongodb/models/qhse-drill/DrillPlan";
+import cloudinary from "@/lib/config/claudinary";
+import path from "node:path";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 const getQuarterFromDate = (date) => {
@@ -51,20 +53,25 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     await connectDB();
-    const body = await req.json();
+    const formData = await req.formData();
 
-    const { planItems, year } = body;
+    // Extract planItems and year from JSON string
+    const planItemsStr = formData.get("planItems");
+    const yearStr = formData.get("year");
 
-    if (!Array.isArray(planItems) || planItems.length === 0) {
+    if (!planItemsStr || !yearStr) {
       return NextResponse.json(
-        { success: false, error: "planItems array is required" },
+        { success: false, error: "planItems and year are required" },
         { status: 400 }
       );
     }
 
-    if (!year) {
+    const planItems = JSON.parse(planItemsStr);
+    const year = Number.parseInt(yearStr, 10);
+
+    if (!Array.isArray(planItems) || planItems.length === 0) {
       return NextResponse.json(
-        { success: false, error: "year is required" },
+        { success: false, error: "planItems array is required" },
         { status: 400 }
       );
     }
@@ -93,13 +100,80 @@ export async function POST(req) {
       };
     });
 
+    // Handle quarter file uploads
+    const quarterFiles = {};
+    const quarters = ["Q1", "Q2", "Q3", "Q4"];
+    const ALLOWED_EXT = new Set([".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"]);
+    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+
+    for (const quarter of quarters) {
+      const file = formData.get(`quarterFile_${quarter}`);
+      
+      if (file && typeof file !== "string" && file.name && file.size > 0) {
+        if (file.size > MAX_SIZE) {
+          return NextResponse.json(
+            { success: false, error: `${quarter} file exceeds 25MB limit` },
+            { status: 400 }
+          );
+        }
+
+        const ext = path.extname(file.name).toLowerCase();
+        if (!ALLOWED_EXT.has(ext)) {
+          return NextResponse.json(
+            { success: false, error: `Invalid file type for ${quarter}` },
+            { status: 400 }
+          );
+        }
+
+        // Upload to Cloudinary
+        const isRaw = ext === ".pdf" || ext === ".doc" || ext === ".docx" || ext === ".xls" || ext === ".xlsx";
+        const resourceType = isRaw ? "raw" : "image";
+
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const uploadResult = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: "oceane/drill/quarter-files",
+              resource_type: resourceType,
+              use_filename: true,
+              unique_filename: true,
+              filename_override: file.name,
+            },
+            (error, result) => {
+              if (error) {
+                console.error(`Cloudinary Upload Error for ${quarter}:`, error);
+                reject(error);
+              } else {
+                resolve(result);
+              }
+            }
+          );
+          uploadStream.end(buffer);
+        });
+
+        quarterFiles[quarter] = {
+          filePath: uploadResult.secure_url,
+          fileName: file.name,
+        };
+      }
+    }
+
     // Ensure model is properly initialized
     const DrillPlanModel = DrillPlan || (await import("@/lib/mongodb/models/qhse-drill/DrillPlan")).default;
     
-    const newPlan = await DrillPlanModel.create({
-      year: Number.parseInt(year, 10),
+    const planData = {
+      year,
       planItems: normalizedPlanItems,
-    });
+    };
+
+    // Only add quarterFiles if there are any files
+    if (Object.keys(quarterFiles).length > 0) {
+      planData.quarterFiles = quarterFiles;
+    }
+    
+    const newPlan = await DrillPlanModel.create(planData);
 
     return NextResponse.json(
       { success: true, data: newPlan },

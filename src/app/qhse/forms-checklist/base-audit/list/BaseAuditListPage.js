@@ -28,27 +28,64 @@ function formatDateTime(value) {
   });
 }
 
+// Generate dynamic years
+function getYears() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = currentYear - 2; i < currentYear; i++) years.push(i);
+  for (let i = currentYear; i <= currentYear + 5; i++) years.push(i);
+  return years;
+}
+
 export default function BaseAuditListPage() {
   const router = useRouter();
+  const currentYear = new Date().getFullYear();
+  const initialYears = getYears();
+  
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  const [availableYears, setAvailableYears] = useState(initialYears);
+  const [loadingYears, setLoadingYears] = useState(true);
+  const [year, setYear] = useState(currentYear);
+
+  // Fetch available years
+  useEffect(() => {
+    const loadYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch("/api/qhse/form-checklist/base-audit/list");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.years)) {
+          const merged = Array.from(
+            new Set([...initialYears, ...data.years])
+          ).sort((a, b) => b - a);
+          setAvailableYears(merged);
+          if (merged.length > 0 && !merged.includes(year)) {
+            setYear(merged[0]);
+          }
+        }
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    loadYears();
+  }, []);
 
   const fetchReports = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/qhse/form-checklist/base-audit/list");
+      const url = year 
+        ? `/api/qhse/form-checklist/base-audit/list?year=${year}`
+        : "/api/qhse/form-checklist/base-audit/list";
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to load reports");
       }
-      // Sort by uploadedAt descending (newest first)
-      const sorted = (data.data || []).sort(
-        (a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)
-      );
-      setReports(sorted);
+      setReports(data.data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -58,7 +95,7 @@ export default function BaseAuditListPage() {
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [year]);
 
   const handleDownload = async (report) => {
     setDownloading(report._id);
@@ -120,19 +157,42 @@ export default function BaseAuditListPage() {
               View and manage all base audit reports
             </p>
           </div>
-          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
-            <Link
-              href="/qhse/forms-checklist/base-audit/form"
-              className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
-            >
-              Base Audit Form
-            </Link>
-            <Link
-              href="/qhse/forms-checklist/base-audit/list"
-              className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
-            >
-              Base Audit List
-            </Link>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                Year
+              </span>
+              <select
+                className="theme-select rounded-full px-3 py-1 text-xs tracking-widest uppercase"
+                value={year || ""}
+                onChange={(e) => setYear(Number(e.target.value))}
+                disabled={loadingYears || availableYears.length === 0}
+              >
+                {(() => {
+                  if (loadingYears) return <option>Loading...</option>;
+                  if (availableYears.length === 0) return <option>No data</option>;
+                  return availableYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ));
+                })()}
+              </select>
+            </div>
+            <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+              <Link
+                href="/qhse/forms-checklist/base-audit/form"
+                className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+              >
+                Base Audit Form
+              </Link>
+              <Link
+                href="/qhse/forms-checklist/base-audit/list"
+                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
+              >
+                Base Audit List
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -162,9 +222,13 @@ export default function BaseAuditListPage() {
                   </svg>
                 </div>
               </div>
-              <p className="text-white/60 mb-2">No reports found</p>
+              <p className="text-white/60 mb-2">
+                {year ? `No reports found for ${year}` : "No reports found"}
+              </p>
               <p className="text-sm text-slate-400 mb-4">
-                Start by uploading your first base audit report
+                {year
+                  ? "Try selecting a different year or upload a new report"
+                  : "Start by uploading your first base audit report"}
               </p>
               <Link
                 href="/qhse/forms-checklist/base-audit/form"
@@ -192,6 +256,7 @@ export default function BaseAuditListPage() {
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-left text-slate-200 border-b border-white/10 bg-white/5">
+                      <th className="px-6 py-4 font-semibold">Form Code</th>
                       <th className="px-6 py-4 font-semibold">Version</th>
                       <th className="px-6 py-4 font-semibold">Description</th>
                       <th className="px-6 py-4 font-semibold">Uploaded By</th>
@@ -208,6 +273,11 @@ export default function BaseAuditListPage() {
                         key={report._id}
                         className="border-b border-white/5 hover:bg-white/5 transition"
                       >
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-sky-300">
+                            {report.formCode || "—"}
+                          </span>
+                        </td>
                         <td className="px-6 py-4">
                           <span className="font-mono text-sky-300">
                             v{report.version || "—"}

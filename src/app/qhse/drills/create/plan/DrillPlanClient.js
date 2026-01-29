@@ -54,6 +54,12 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [savedPlan, setSavedPlan] = useState(null);
+  const [quarterFiles, setQuarterFiles] = useState({
+    Q1: null,
+    Q2: null,
+    Q3: null,
+    Q4: null,
+  });
 
   const handleYearChange = (newYear) => {
     setYear(newYear);
@@ -87,6 +93,13 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
     }
   };
 
+  const handleQuarterFileChange = (quarter, file) => {
+    setQuarterFiles((prev) => ({
+      ...prev,
+      [quarter]: file,
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -110,10 +123,22 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
         return;
       }
 
+      // Create FormData for file uploads
+      const formData = new FormData();
+      formData.append("planItems", JSON.stringify(planItems));
+      formData.append("year", year.toString());
+
+      // Append quarter files if they exist
+      Object.keys(quarterFiles).forEach((quarter) => {
+        const file = quarterFiles[quarter];
+        if (file) {
+          formData.append(`quarterFile_${quarter}`, file);
+        }
+      });
+
       const res = await fetch("/api/qhse/drill/plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planItems, year }),
+        body: formData,
       });
 
       const data = await res.json();
@@ -383,6 +408,43 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
               <span className="font-semibold">{message}</span>
             </div>
           )}
+
+          {/* Quarter File Uploads */}
+          <div className="rounded-2xl border border-white/10 bg-[#0b2740]/80 p-6 space-y-4">
+            <h3 className="text-base font-semibold text-white border-b border-white/10 pb-2">
+              Drill Matrix File Attachments (Quarter-wise)
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {QUARTERS.map((quarter) => (
+                <div key={quarter} className="space-y-2">
+                  <label
+                    htmlFor={`quarter-${quarter}`}
+                    className="block text-xs font-semibold text-white/90"
+                  >
+                    {quarter}:
+                  </label>
+                  <input
+                    id={`quarter-${quarter}`}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      handleQuarterFileChange(quarter, file);
+                    }}
+                    className="w-full text-xs text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-500 file:text-white hover:file:bg-sky-600 file:cursor-pointer cursor-pointer rounded-xl border border-white/15 bg-white/5 px-4 py-2 focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/40 transition outline-none"
+                  />
+                  {quarterFiles[quarter] && (
+                    <p className="text-xs text-emerald-300 truncate">
+                      ✓ {quarterFiles[quarter].name}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">
+              Upload drill matrix files for each quarter. Supported formats: PDF, Word, Excel, Images (max 25MB each)
+            </p>
+          </div>
 
           {/* Submit Button */}
           <div className="flex justify-end gap-3 pt-4 border-t border-white/10">

@@ -8,15 +8,31 @@ export default function AuditInspectionPlannerListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [approving, setApproving] = useState(null);
+  const [year, setYear] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [loadingYears, setLoadingYears] = useState(false);
+
+  const getYears = () => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  };
 
   const fetchData = async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/qhse/audit-inspection-planner/list");
+      const params = new URLSearchParams();
+      if (year) {
+        params.append("year", year.toString());
+      }
+      const url = `/api/qhse/audit-inspection-planner/list${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load planners");
       setItems(data.data || []);
+      if (data.years && data.years.length > 0) {
+        setAvailableYears(data.years);
+      }
     } catch (err) {
       setError(err.message || "Failed to load planners");
     } finally {
@@ -26,6 +42,26 @@ export default function AuditInspectionPlannerListPage() {
 
   useEffect(() => {
     fetchData();
+  }, [year]);
+
+  useEffect(() => {
+    const fetchYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch("/api/qhse/audit-inspection-planner/list");
+        const data = await res.json();
+        if (res.ok && data.years) {
+          setAvailableYears(data.years);
+        } else {
+          setAvailableYears(getYears());
+        }
+      } catch (err) {
+        setAvailableYears(getYears());
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    fetchYears();
   }, []);
 
   const handleApprove = async (id) => {
@@ -59,26 +95,50 @@ export default function AuditInspectionPlannerListPage() {
     <div className="flex-1 ml-72 pr-4">
       <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
         <header className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
+          <div className="flex-1">
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
               QHSE / Audit & Inspection Planner
             </p>
             <h1 className="text-2xl font-bold">Audit & Inspection Planners</h1>
             <p className="text-xs text-slate-200 mt-1">View saved planners</p>
           </div>
-          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
-            <Link
-              href="/qhse/audit-inspection-planner/form"
-              className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
-            >
-              Planner Form
-            </Link>
-            <Link
-              href="/qhse/audit-inspection-planner/list"
-              className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
-            >
-              Planner List
-            </Link>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {/* Year Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                Year
+              </span>
+              <select
+                className="theme-select rounded-full px-3 py-1 text-xs tracking-widest uppercase"
+                value={year || ""}
+                onChange={(e) => setYear(Number(e.target.value))}
+                disabled={loadingYears || availableYears.length === 0}
+              >
+                {availableYears.length === 0 ? (
+                  <option>No data</option>
+                ) : (
+                  availableYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+            <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+              <Link
+                href="/qhse/audit-inspection-planner/form"
+                className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+              >
+                Planner Form
+              </Link>
+              <Link
+                href="/qhse/audit-inspection-planner/list"
+                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
+              >
+                Planner List
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -91,7 +151,9 @@ export default function AuditInspectionPlannerListPage() {
         <main>
           {items.length === 0 ? (
             <div className="text-center py-12 rounded-2xl border border-white/10 bg-white/5">
-              <p className="text-white/60 mb-2">No planners found</p>
+              <p className="text-white/60 mb-2">
+                {year ? `No planners found for ${year}` : "No planners found"}
+              </p>
               <Link
                 href="/qhse/audit-inspection-planner/form"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition"
