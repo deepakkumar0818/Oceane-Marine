@@ -13,14 +13,51 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET() {
+export async function GET(req) {
   await connectDB();
   try {
-    const forms = await HseInductionChecklist.find()
-      .sort({ createdAt: -1 })
+    const { searchParams } = new URL(req.url);
+    const year = searchParams.get("year");
+
+    // Build query
+    const query = {};
+    
+    // Filter by year if provided (using dateOfInduction)
+    if (year) {
+      const yearNum = Number.parseInt(year, 10);
+      const startDate = new Date(`${yearNum}-01-01T00:00:00.000Z`);
+      const endDate = new Date(`${yearNum + 1}-01-01T00:00:00.000Z`);
+      query.dateOfInduction = {
+        $gte: startDate,
+        $lt: endDate,
+      };
+    }
+
+    const forms = await HseInductionChecklist.find(query)
+      .sort({ dateOfInduction: -1, createdAt: -1 })
       .lean();
+
+    // Get available years from all forms
+    const allForms = await HseInductionChecklist.find({ dateOfInduction: { $exists: true, $ne: null } })
+      .select("dateOfInduction")
+      .lean();
+
+    const yearsSet = new Set();
+    allForms.forEach((form) => {
+      if (form.dateOfInduction) {
+        const formYear = new Date(form.dateOfInduction).getFullYear();
+        yearsSet.add(formYear);
+      }
+    });
+
+    const years = Array.from(yearsSet).sort((a, b) => b - a);
+
     return NextResponse.json(
-      { success: true, data: forms },
+      { 
+        success: true, 
+        data: forms,
+        years: years.length > 0 ? years : [new Date().getFullYear()],
+      },
       { status: 200, headers: { "Access-Control-Allow-Origin": "*" } }
     );
   } catch (error) {

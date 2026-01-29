@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import TrainingPlan from "@/lib/mongodb/models/qhse-training/TrainingPlan";
+import cloudinary from "@/lib/config/claudinary";
+import path from "node:path";
 
 
 export async function GET(req) {
@@ -44,9 +46,18 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     await connectDB();
-    const body = await req.json();
+    const formData = await req.formData();
 
-    const { planItems } = body;
+    // Extract planItems from JSON string
+    const planItemsStr = formData.get("planItems");
+    if (!planItemsStr) {
+      return NextResponse.json(
+        { success: false, error: "planItems is required" },
+        { status: 400 }
+      );
+    }
+
+    const planItems = JSON.parse(planItemsStr);
 
     if (!Array.isArray(planItems) || planItems.length === 0) {
       return NextResponse.json(
@@ -69,10 +80,77 @@ export async function POST(req) {
       );
     }
 
-    const newPlan = await TrainingPlan.create({
+    // Handle month pair file uploads
+    const monthPairFiles = {};
+    const monthPairs = ["Jan-Feb", "Mar-Apr", "May-Jun", "Jul-Aug", "Sep-Oct", "Nov-Dec"];
+    const ALLOWED_EXT = new Set([".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"]);
+    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+
+    for (const monthPair of monthPairs) {
+      const file = formData.get(`monthPairFile_${monthPair}`);
+      
+      if (file && typeof file !== "string" && file.name && file.size > 0) {
+        if (file.size > MAX_SIZE) {
+          return NextResponse.json(
+            { success: false, error: `${monthPair} file exceeds 25MB limit` },
+            { status: 400 }
+          );
+        }
+
+        const ext = path.extname(file.name).toLowerCase();
+        if (!ALLOWED_EXT.has(ext)) {
+          return NextResponse.json(
+            { success: false, error: `Invalid file type for ${monthPair}` },
+            { status: 400 }
+          );
+        }
+
+        // Upload to Cloudinary
+        const isRaw = ext === ".pdf" || ext === ".doc" || ext === ".docx" || ext === ".xls" || ext === ".xlsx";
+        const resourceType = isRaw ? "raw" : "image";
+
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const uploadResult = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: "oceane/training/month-pair-files",
+              resource_type: resourceType,
+              use_filename: true,
+              unique_filename: true,
+              filename_override: file.name,
+            },
+            (error, result) => {
+              if (error) {
+                console.error(`Cloudinary Upload Error for ${monthPair}:`, error);
+                reject(error);
+              } else {
+                resolve(result);
+              }
+            }
+          );
+          uploadStream.end(buffer);
+        });
+
+        monthPairFiles[monthPair] = {
+          filePath: uploadResult.secure_url,
+          fileName: file.name,
+        };
+      }
+    }
+
+    const planData = {
       planItems,
       status: "Approved",
-    });
+    };
+
+    // Only add monthPairFiles if there are any files
+    if (Object.keys(monthPairFiles).length > 0) {
+      planData.monthPairFiles = monthPairFiles;
+    }
+
+    const newPlan = await TrainingPlan.create(planData);
 
     return NextResponse.json({ success: true, data: newPlan }, { status: 201 });
   } catch (error) {

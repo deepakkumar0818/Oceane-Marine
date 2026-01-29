@@ -34,6 +34,18 @@ const MonthlyTrainingSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const MonthPairFileSchema = new mongoose.Schema(
+  {
+    filePath: {
+      type: String,
+    },
+    fileName: {
+      type: String,
+    },
+  },
+  { _id: false }
+);
+
 const TrainingPlanSchema = new mongoose.Schema(
   {
     formCode: {
@@ -49,6 +61,15 @@ const TrainingPlanSchema = new mongoose.Schema(
 
     planItems: {
       type: [MonthlyTrainingSchema],
+    },
+
+    monthPairFiles: {
+      "Jan-Feb": { type: MonthPairFileSchema, default: null },
+      "Mar-Apr": { type: MonthPairFileSchema, default: null },
+      "May-Jun": { type: MonthPairFileSchema, default: null },
+      "Jul-Aug": { type: MonthPairFileSchema, default: null },
+      "Sep-Oct": { type: MonthPairFileSchema, default: null },
+      "Nov-Dec": { type: MonthPairFileSchema, default: null },
     },
 
     approvedBy: {

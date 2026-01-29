@@ -227,7 +227,13 @@ export default function BaseAuditFormPage() {
             </h2>
 
             {existingReport && (
-              <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm">
+              <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm space-y-2">
+                {existingReport.formCode && (
+                  <p className="text-sky-200">
+                    <span className="font-semibold">Form Code:</span>{" "}
+                    <span className="font-mono">{existingReport.formCode}</span>
+                  </p>
+                )}
                 <p className="text-sky-200">
                   <span className="font-semibold">Current Version:</span> v
                   {existingReport.version}

@@ -33,17 +33,33 @@ export default function MOCManagementChangeListPage() {
   const [mocToReject, setMocToReject] = useState(null);
   // Status filter: Draft, Open, Closed, All
   const [filter, setFilter] = useState("Open");
+  const [year, setYear] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [loadingYears, setLoadingYears] = useState(false);
+
+  const getYears = () => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  };
 
   const fetchMocs = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/qhse/moc/management-change/list");
+      const params = new URLSearchParams();
+      if (year) {
+        params.append("year", year.toString());
+      }
+      const url = `/api/qhse/moc/management-change/list${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to load MOC forms");
       }
       setMocs(data.data || []);
+      if (data.years && data.years.length > 0) {
+        setAvailableYears(data.years);
+      }
       if (selectedMoc) {
         const updated = (data.data || []).find(
           (m) => m._id === selectedMoc._id
@@ -59,6 +75,26 @@ export default function MOCManagementChangeListPage() {
 
   useEffect(() => {
     fetchMocs();
+  }, [year]);
+
+  useEffect(() => {
+    const fetchYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch("/api/qhse/moc/management-change/list");
+        const data = await res.json();
+        if (res.ok && data.years) {
+          setAvailableYears(data.years);
+        } else {
+          setAvailableYears(getYears());
+        }
+      } catch (err) {
+        setAvailableYears(getYears());
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    fetchYears();
   }, []);
 
   const handleSubmit = async (mocId) => {
@@ -216,8 +252,8 @@ export default function MOCManagementChangeListPage() {
   return (
     <div className="flex-1 ml-72 pr-4">
       <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-        <header className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex-1">
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
               QHSE / MOC / Management of Change
             </p>
@@ -227,23 +263,50 @@ export default function MOCManagementChangeListPage() {
             </p>
           </div>
 
-          {/* Top-right Form/List toggle */}
-          {!selectedMoc && (
-            <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
-              <Link
-                href="/qhse/moc/management-change/form"
-                className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
-              >
-                MOC Form
-              </Link>
-              <button
-                type="button"
-                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition cursor-default"
-              >
-                MOC List
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {/* Year Filter */}
+            {!selectedMoc && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                  Year
+                </span>
+                <select
+                  className="theme-select rounded-full px-3 py-1 text-xs tracking-widest uppercase"
+                  value={year || ""}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  disabled={loadingYears || availableYears.length === 0}
+                >
+                  {availableYears.length === 0 ? (
+                    <option>No data</option>
+                  ) : (
+                    availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            )}
+
+            {/* Top-right Form/List toggle */}
+            {!selectedMoc && (
+              <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+                <Link
+                  href="/qhse/moc/management-change/form"
+                  className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+                >
+                  MOC Form
+                </Link>
+                <button
+                  type="button"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition cursor-default"
+                >
+                  MOC List
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {error && (
@@ -657,7 +720,9 @@ export default function MOCManagementChangeListPage() {
               {filteredMocs.length === 0 ? (
                 <div className="text-center py-12 rounded-2xl border border-white/10 bg-white/5">
                     <p className="text-white/60 mb-4">
-                      {filter === "Draft"
+                      {year
+                        ? `No forms found for ${year}${filter !== "All" ? ` (${filter})` : ""}`
+                        : filter === "Draft"
                         ? "No draft forms found"
                         : filter === "Open"
                         ? "No open forms found"
@@ -681,6 +746,9 @@ export default function MOCManagementChangeListPage() {
                       <table className="w-full">
                         <thead className="bg-white/5 border-b border-white/10">
                           <tr>
+                            <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/80">
+                              Form Code
+                            </th>
                             <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/80">
                               MOC Number
                             </th>
@@ -707,6 +775,11 @@ export default function MOCManagementChangeListPage() {
                               key={moc._id}
                               className="hover:bg-white/5 transition"
                             >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm font-mono text-sky-300">
+                                  {moc.formCode || "—"}
+                                </span>
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="text-sm font-mono text-sky-300">
                                   {moc.mocNumber || "—"}

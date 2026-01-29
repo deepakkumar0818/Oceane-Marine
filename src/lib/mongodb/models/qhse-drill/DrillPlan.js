@@ -33,6 +33,21 @@ const QuarterlyDrillSchema = new mongoose.Schema(
 );
 
 /* ----------------------------------------
+   QUARTER FILE SCHEMA
+----------------------------------------- */
+const QuarterFileSchema = new mongoose.Schema(
+  {
+    filePath: {
+      type: String,
+    },
+    fileName: {
+      type: String,
+    },
+  },
+  { _id: false }
+);
+
+/* ----------------------------------------
    DRILL PLAN (ANNUAL MATRIX)
 ----------------------------------------- */
 const DrillPlanSchema = new mongoose.Schema(
@@ -52,6 +67,13 @@ const DrillPlanSchema = new mongoose.Schema(
 
     planItems: {
       type: [QuarterlyDrillSchema],
+    },
+
+    quarterFiles: {
+      Q1: { type: QuarterFileSchema, default: null },
+      Q2: { type: QuarterFileSchema, default: null },
+      Q3: { type: QuarterFileSchema, default: null },
+      Q4: { type: QuarterFileSchema, default: null },
     },
 
     approvedBy: {

@@ -314,6 +314,73 @@ export default function DrillsReportClient() {
             )}
           </div>
 
+          {/* Quarter File Downloads Section */}
+          {plan && plan.quarterFiles && (
+            <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 space-y-4">
+              <h3 className="text-base font-semibold text-white border-b border-white/10 pb-2">
+                Drill Matrix Files (Quarter-wise)
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {QUARTERS.map((quarter) => {
+                  const quarterFile = plan.quarterFiles?.[quarter];
+                  if (!quarterFile || !quarterFile.filePath) return null;
+
+                  return (
+                    <div
+                      key={quarter}
+                      className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-white">
+                          {quarter}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 truncate">
+                        {quarterFile.fileName || "Drill Matrix"}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(
+                              `/api/qhse/drill/download/quarter-file?planId=${plan._id}&quarter=${quarter}`
+                            );
+                            if (!res.ok) {
+                              throw new Error("Failed to download file");
+                            }
+                            const blob = await res.blob();
+                            const url = globalThis.URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download =
+                              quarterFile.fileName ||
+                              `drill-matrix-${quarter}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            globalThis.URL.revokeObjectURL(url);
+                            a.remove();
+                          } catch (err) {
+                            alert(err.message || "Failed to download file");
+                          }
+                        }}
+                        className="w-full text-xs text-sky-300 hover:text-sky-200 font-medium px-3 py-2 rounded border border-sky-400/30 hover:bg-sky-400/10 transition"
+                      >
+                        📥 Download {quarter} File
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              {!QUARTERS.some(
+                (q) => plan.quarterFiles?.[q]?.filePath
+              ) && (
+                <p className="text-xs text-slate-400 text-center py-4">
+                  No drill matrix files uploaded for this plan.
+                </p>
+              )}
+            </div>
+          )}
+
           {creatingFor && (
             <form
               onSubmit={handleSubmit}

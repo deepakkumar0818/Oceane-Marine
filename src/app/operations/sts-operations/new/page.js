@@ -27,6 +27,7 @@ const statusTone = {
   },
 };
 
+
 const sidebarTabs = [
   {
     key: "documentation",
@@ -98,21 +99,7 @@ export default function NewOperationPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showStatusList]);
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
-        setIsSidebarOpen(false);
-      }
-    };
-
-    if (isSidebarOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isSidebarOpen]);
+  // Removed click-outside-to-close behavior - sidebar only closes on "x" button click (like QHSE module)
 
   // Fetch master data for dynamic dropdowns
   useEffect(() => {

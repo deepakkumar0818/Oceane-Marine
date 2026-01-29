@@ -27,7 +27,19 @@ function formatDateTime(value) {
   });
 }
 
+// Generate dynamic years
+function getYears() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = currentYear - 2; i < currentYear; i++) years.push(i);
+  for (let i = currentYear; i <= currentYear + 5; i++) years.push(i);
+  return years;
+}
+
 export default function NearMissListPage() {
+  const currentYear = new Date().getFullYear();
+  const initialYears = getYears();
+  
   const [nearMisses, setNearMisses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,12 +48,41 @@ export default function NearMissListPage() {
   const [itemsPerPage] = useState(10);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [remarksByReviewer, setRemarksByReviewer] = useState("");
+  const [availableYears, setAvailableYears] = useState(initialYears);
+  const [loadingYears, setLoadingYears] = useState(true);
+  const [year, setYear] = useState(currentYear);
+
+  // Fetch available years
+  useEffect(() => {
+    const loadYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch("/api/near-miss-form/list");
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.years)) {
+          const merged = Array.from(
+            new Set([...initialYears, ...data.years])
+          ).sort((a, b) => b - a);
+          setAvailableYears(merged);
+          if (merged.length > 0 && !merged.includes(year)) {
+            setYear(merged[0]);
+          }
+        }
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    loadYears();
+  }, []);
 
   const fetchNearMisses = async (selectedReportId = null) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/near-miss-form/list");
+      const url = year 
+        ? `/api/near-miss-form/list?year=${year}`
+        : "/api/near-miss-form/list";
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to load near-miss reports");
@@ -64,7 +105,7 @@ export default function NearMissListPage() {
 
   useEffect(() => {
     fetchNearMisses();
-  }, []);
+  }, [year]);
 
   // Pagination calculations
   const totalPages = Math.ceil(nearMisses.length / itemsPerPage);
@@ -137,7 +178,7 @@ export default function NearMissListPage() {
   return (
     <div className="flex-1 ml-72 pr-4">
       <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-        <header className="flex items-center gap-4">
+        <header className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
@@ -151,6 +192,27 @@ export default function NearMissListPage() {
                 Details" to see full information.
               </p>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+              Year
+            </span>
+            <select
+              className="theme-select rounded-full px-3 py-1 text-xs tracking-widest uppercase"
+              value={year || ""}
+              onChange={(e) => setYear(Number(e.target.value))}
+              disabled={loadingYears || availableYears.length === 0}
+            >
+              {(() => {
+                if (loadingYears) return <option>Loading...</option>;
+                if (availableYears.length === 0) return <option>No data</option>;
+                return availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ));
+              })()}
+            </select>
           </div>
         </header>
 
@@ -374,7 +436,7 @@ export default function NearMissListPage() {
             ) : nearMisses.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <p className="text-sm text-slate-100">
-                  No near-miss reports found.
+                  {year ? `No near-miss reports found for ${year}.` : "No near-miss reports found."}
                 </p>
               </div>
             ) : (

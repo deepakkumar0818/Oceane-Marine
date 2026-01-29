@@ -132,8 +132,8 @@ export default function EquipmentBaseStockAdminPage() {
     <div className="flex-1 ml-72 pr-4">
       <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
         {/* Header */}
-        <header className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex-1">
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
               QHSE / Forms & Checklist / STS Equipment Base Stock Level
             </p>
@@ -144,7 +144,7 @@ export default function EquipmentBaseStockAdminPage() {
               Review submitted equipment base stock level forms and approve or reject.
             </p>
           </div>
-          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden flex-shrink-0">
             <Link
               href="/qhse/forms-checklist/equipment-base-stock-level/form"
               className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"

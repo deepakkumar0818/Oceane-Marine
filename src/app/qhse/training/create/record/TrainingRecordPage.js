@@ -340,9 +340,16 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
               <h2 className="text-lg font-semibold">Monthly Training Plan</h2>
               <div className="flex items-center gap-3">
                 {plan && (
-                  <span className="text-xs px-2 py-1 rounded-lg border border-white/15 bg-white/5 text-slate-200">
-                    Plan year: {plan.year}
-                  </span>
+                  <>
+                    <span className="text-xs px-2 py-1 rounded-lg border border-white/15 bg-white/5 text-slate-200">
+                      Plan year: {plan.year}
+                    </span>
+                    {plan.formCode && (
+                      <span className="text-xs px-2 py-1 rounded-lg border border-white/15 bg-white/5 text-slate-200">
+                        Form Code: {plan.formCode}
+                      </span>
+                    )}
+                  </>
                 )}
                 <span className="text-xs text-slate-300">
                   Select a month pair to create record
@@ -649,6 +656,74 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
               </div>
             )}
 
+            {/* Quarter File Downloads Section */}
+            {plan && plan.monthPairFiles && (
+              <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 space-y-4">
+                <h3 className="text-base font-semibold text-white border-b border-white/10 pb-2">
+                  Training Matrix Files (Month Pair-wise)
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {MONTH_PAIRS.map((pair) => {
+                    const monthPairKey = pair.key;
+                    const monthPairFile = plan.monthPairFiles?.[monthPairKey];
+                    if (!monthPairFile || !monthPairFile.filePath) return null;
+
+                    return (
+                      <div
+                        key={monthPairKey}
+                        className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-white">
+                            {pair.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 truncate">
+                          {monthPairFile.fileName || "Training Matrix"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(
+                                `/api/qhse/training/download/quarter-file?planId=${plan._id}&monthPair=${monthPairKey}`
+                              );
+                              if (!res.ok) {
+                                throw new Error("Failed to download file");
+                              }
+                              const blob = await res.blob();
+                              const url = globalThis.URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download =
+                                monthPairFile.fileName ||
+                                `training-matrix-${monthPairKey}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              globalThis.URL.revokeObjectURL(url);
+                              a.remove();
+                            } catch (err) {
+                              alert(err.message || "Failed to download file");
+                            }
+                          }}
+                          className="w-full text-xs text-sky-300 hover:text-sky-200 font-medium px-3 py-2 rounded border border-sky-400/30 hover:bg-sky-400/10 transition"
+                        >
+                          📥 Download {pair.label} File
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {!MONTH_PAIRS.some(
+                  (pair) => plan.monthPairFiles?.[pair.key]?.filePath
+                ) && (
+                  <p className="text-xs text-slate-400 text-center py-4">
+                    No training matrix files uploaded for this plan.
+                  </p>
+                )}
+              </div>
+            )}
+
             {!loadingRecords && !recordsError && (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {MONTH_PAIRS.map((pair, idx) => {
@@ -720,7 +795,11 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
                         {record ? (
                           <div className="space-y-1 text-xs text-slate-200">
                             <div>
-                              <span className="text-slate-400">Form Code:</span>{" "}
+                              <span className="text-slate-400">Plan Form Code:</span>{" "}
+                              {plan?.formCode || "—"}
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Record Form Code:</span>{" "}
                               {record.formCode || "—"}
                             </div>
                             <div>

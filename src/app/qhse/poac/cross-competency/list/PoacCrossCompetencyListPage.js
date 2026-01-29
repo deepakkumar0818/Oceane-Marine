@@ -22,6 +22,14 @@ export default function PoacCrossCompetencyListPage() {
   const [itemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [year, setYear] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [loadingYears, setLoadingYears] = useState(false);
+
+  const getYears = () => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  };
 
   const fetchForms = async () => {
     setLoading(true);
@@ -41,6 +49,10 @@ export default function PoacCrossCompetencyListPage() {
         params.append("status", statusFilter);
       }
 
+      if (year) {
+        params.append("year", year.toString());
+      }
+
       const res = await fetch(
         `/api/qhse/cross-competency/list?${params.toString()}`
       );
@@ -51,6 +63,9 @@ export default function PoacCrossCompetencyListPage() {
       }
 
       setForms(data.data || []);
+      if (data.years && data.years.length > 0) {
+        setAvailableYears(data.years);
+      }
     } catch (err) {
       setError(err.message || "Failed to load forms");
     } finally {
@@ -60,7 +75,27 @@ export default function PoacCrossCompetencyListPage() {
 
   useEffect(() => {
     fetchForms();
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, year]);
+
+  useEffect(() => {
+    const fetchYears = async () => {
+      setLoadingYears(true);
+      try {
+        const res = await fetch("/api/qhse/cross-competency/list?limit=1");
+        const data = await res.json();
+        if (res.ok && data.years) {
+          setAvailableYears(data.years);
+        } else {
+          setAvailableYears(getYears());
+        }
+      } catch (err) {
+        setAvailableYears(getYears());
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    fetchYears();
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -146,6 +181,30 @@ export default function PoacCrossCompetencyListPage() {
                 />
               </div>
               <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                    Year
+                  </span>
+                  <select
+                    className="theme-select rounded-full px-3 py-1 text-xs tracking-widest uppercase"
+                    value={year || ""}
+                    onChange={(e) => {
+                      setYear(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    disabled={loadingYears || availableYears.length === 0}
+                  >
+                    {availableYears.length === 0 ? (
+                      <option>No data</option>
+                    ) : (
+                      availableYears.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
                 <select
                   className="rounded-xl bg-slate-900/40 border border-white/15 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60"
                   value={statusFilter}
@@ -177,7 +236,9 @@ export default function PoacCrossCompetencyListPage() {
             ) : forms.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <p className="text-sm text-slate-300 mb-4">
-                  {searchTerm || statusFilter !== "all"
+                  {year
+                    ? `No forms found for ${year}${searchTerm || statusFilter !== "all" ? " matching your criteria" : ""}`
+                    : searchTerm || statusFilter !== "all"
                     ? "No forms found matching your criteria."
                     : "No POAC Cross Competency forms found."}
                 </p>

@@ -245,8 +245,8 @@ export default function MOCManagementChangeFormPage() {
   return (
     <div className="flex-1 ml-72 pr-4">
       <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-        <header className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex-1">
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
               QHSE / MOC / Management of Change
             </p>
@@ -259,7 +259,7 @@ export default function MOCManagementChangeFormPage() {
           </div>
 
           {/* Top-right Form/List toggle */}
-          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden flex-shrink-0">
             <Link
               href="/qhse/moc/management-change/form"
               className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
