@@ -474,13 +474,30 @@ export default function QhseDashboardContent() {
                 <div className="h-80 flex items-end justify-around gap-2 px-4">
                   {barChartData.labels.map((label, idx) => {
                     const value = barChartData.datasets[0].data[idx];
-                    const maxValue = Math.max(...barChartData.datasets[0].data);
-                    const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                    const maxValue = Math.max(...barChartData.datasets[0].data, 1);
+                    // Calculate height: if value > 0, show proportional height, otherwise show minimum 4px
+                    const height = value > 0 
+                      ? Math.max((value / maxValue) * 100, 8) 
+                      : 2;
                     return (
                       <div key={label} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full bg-white/10 rounded-t-lg relative" style={{ height: `${height}%` }}>
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg"></div>
-                          <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-white">
+                        <div className="w-full relative" style={{ height: "100%" }}>
+                          <div
+                            className={`w-full rounded-t-lg relative transition-all ${
+                              value > 0 
+                                ? "bg-gradient-to-t from-blue-500 to-blue-400" 
+                                : "bg-white/10"
+                            }`}
+                            style={{ 
+                              height: `${height}%`, 
+                              minHeight: value > 0 ? "8px" : "2px" 
+                            }}
+                          >
+                            {value > 0 && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-600 to-blue-500 rounded-t-lg h-full shadow-lg shadow-blue-500/30"></div>
+                            )}
+                          </div>
+                          <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-white whitespace-nowrap">
                             {value}
                           </span>
                         </div>
