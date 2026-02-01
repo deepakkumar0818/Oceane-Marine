@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/operations/sts-operations/new/ports-terminals",
+        destination: "/operations/sts-operations/new/locations",
+        permanent: true,
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "30mb", // Increases limit to 30MB

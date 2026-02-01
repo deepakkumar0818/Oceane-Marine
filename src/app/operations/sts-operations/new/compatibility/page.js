@@ -9,7 +9,7 @@ const sidebarTabs = [
   { key: "compatibility", label: "Compatibility", href: "/operations/sts-operations/new/compatibility" },
   { key: "hose-transfer", label: "Hose transfer record", href: "#" },
   { key: "forms", label: "Forms and checklist", href: "#" },
-  { key: "ports", label: "Ports and Terminals", href: "#" },
+  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
 ];
 
 const panels = {
