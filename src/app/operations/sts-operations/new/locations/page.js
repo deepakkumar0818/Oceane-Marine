@@ -4,38 +4,32 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const OFFICE_CHECK_LABELS = {
+  jpo: "JPO",
+  riskAssessment: "Risk Assessment",
+  stsTransferLocationChecklist: "STS Transfer Location Checklist",
+  stsNewBaseChecklist: "STS New Base Checklist",
+  moc: "MOC",
+  mocRa: "MOC -RA",
+  preArrivalNotification: "Pre Arrival Notification",
+  contingencyPlan: "Contingency plan",
+  costing: "Costing",
+};
+
 const sidebarTabs = [
-  {
-    key: "documentation",
-    label: "Documentation",
-    href: "/operations/sts-operations/new",
-  },
-  {
-    key: "compatibility",
-    label: "Compatibility",
-    href: "/operations/sts-operations/new/compatibility",
-  },
+  { key: "documentation", label: "Documentation", href: "/operations/sts-operations/new" },
+  { key: "compatibility", label: "Compatibility", href: "/operations/sts-operations/new/compatibility" },
   { key: "hose-transfer", label: "Hose transfer record", href: "#" },
   { key: "forms", label: "Forms and checklist", href: "#" },
-  { key: "ports", label: "Ports and Terminals", href: "#" },
-  {
-    key: "cargos",
-    label: "Cargo types",
-    href: "/operations/sts-operations/new/cargos",
-  },
-  {
-    key: "locations",
-    label: "Locations",
-    href: "/operations/sts-operations/new/locations",
-  },
-  {
-    key: "mooring",
-    label: "Mooring masters",
-    href: "/operations/sts-operations/new/mooringmaster",
-  },
+  { key: "locations", label: "Locations", href: "/operations/sts-operations/new/locations" },
+  { key: "cargos", label: "Cargo types", href: "/operations/sts-operations/new/cargos" },
+  { key: "mooring", label: "Mooring masters", href: "/operations/sts-operations/new/mooringmaster" },
 ];
 
 export default function LocationsPage() {
+  const pathname = usePathname();
+
+  // --- Manage locations (master data) ---
   const [items, setItems] = useState([]);
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,8 +37,37 @@ export default function LocationsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const sidebarRef = useRef(null);
-  const pathname = usePathname();
 
+  // --- Office checks section ---
+  const [section, setSection] = useState("locations"); // "locations" | "office-checks"
+  const [locations, setLocations] = useState([]);
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [selectedLocationName, setSelectedLocationName] = useState("");
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [years, setYears] = useState([new Date().getFullYear()]);
+  const [officeView, setOfficeView] = useState("form"); // "form" | "list"
+  const [records, setRecords] = useState([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [officeChecks, setOfficeChecks] = useState({
+    jpo: false,
+    riskAssessment: false,
+    stsTransferLocationChecklist: false,
+    stsNewBaseChecklist: false,
+    moc: false,
+    mocRa: false,
+    preArrivalNotification: false,
+    contingencyPlan: false,
+    costing: false,
+  });
+  const [checkboxFiles, setCheckboxFiles] = useState({});
+  const [additionalFiles, setAdditionalFiles] = useState([]);
+  const additionalInputRefs = useRef([]);
+
+  const activeTab = sidebarTabs.find((tab) => pathname === tab.href)?.key || "locations";
+
+  // Load locations (master list for both sections)
   useEffect(() => {
     load();
   }, []);
@@ -52,9 +75,16 @@ export default function LocationsPage() {
   const load = async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await fetch("/api/master/locations/list");
       const data = await res.json();
-      setItems(data?.locations || []);
+      const list = data?.locations || [];
+      setItems(list);
+      setLocations(list);
+      if (list.length > 0 && !selectedLocationId) {
+        setSelectedLocationId(list[0]._id);
+        setSelectedLocationName(list[0].name);
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to load locations");
@@ -63,7 +93,51 @@ export default function LocationsPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  useEffect(() => {
+    if (selectedLocationId && locations.length) {
+      const loc = locations.find((l) => l._id === selectedLocationId);
+      setSelectedLocationName(loc ? loc.name : "");
+    }
+  }, [selectedLocationId, locations]);
+
+  // Load years for office checks
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const res = await fetch("/api/operations/location/list");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.years)) {
+          const merged = [...new Set([year, ...data.years])].sort((a, b) => b - a);
+          setYears(merged);
+        }
+      } catch (_) {}
+    };
+    loadYears();
+  }, []);
+
+  // Load office checks list when on list view
+  useEffect(() => {
+    if (section !== "office-checks" || officeView !== "list" || !selectedLocationId) return;
+    const loadRecords = async () => {
+      setLoadingList(true);
+      setError("");
+      try {
+        const url = `/api/operations/location/list?location=${encodeURIComponent(selectedLocationId)}&year=${year}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load list");
+        setRecords(data.data || []);
+      } catch (err) {
+        setError(err.message);
+        setRecords([]);
+      } finally {
+        setLoadingList(false);
+      }
+    };
+    loadRecords();
+  }, [section, officeView, selectedLocationId, year]);
+
+  const handleSubmitLocation = async (e) => {
     e.preventDefault();
     setError("");
     if (!value.trim()) return;
@@ -89,9 +163,7 @@ export default function LocationsPage() {
     if (!confirm("Are you sure you want to delete this location?")) return;
     try {
       setActionLoading(true);
-      const res = await fetch(`/api/master/locations/${id}/delete`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/master/locations/${id}/delete`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete");
       await load();
@@ -102,27 +174,111 @@ export default function LocationsPage() {
     }
   };
 
-  const activeTab =
-    sidebarTabs.find((tab) => pathname === tab.href)?.key || "locations";
+  const handleLocationChange = (e) => {
+    const id = e.target.value;
+    setSelectedLocationId(id);
+    const loc = locations.find((l) => l._id === id);
+    setSelectedLocationName(loc ? loc.name : "");
+  };
+
+  const toggleCheck = (key) => {
+    setOfficeChecks((prev) => ({ ...prev, [key]: !prev[key] }));
+    if (!officeChecks[key]) setCheckboxFiles((prev) => ({ ...prev, [key]: null }));
+  };
+
+  const handleCheckboxFile = (key, file) => {
+    setCheckboxFiles((prev) => ({ ...prev, [key]: file }));
+  };
+
+  const addAdditionalSlot = () => {
+    setAdditionalFiles((prev) => [...prev, null]);
+  };
+
+  const setAdditionalFileAt = (index, file) => {
+    setAdditionalFiles((prev) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  };
+
+  const handleSubmitOfficeChecks = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    if (!selectedLocationId || !selectedLocationName) {
+      setError("Please select a location");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("locationId", selectedLocationId);
+      formData.append("locationName", selectedLocationName);
+      formData.append("year", String(year));
+      formData.append("uploadedByName", "");
+      formData.append("uploadedByUserId", "");
+      Object.keys(officeChecks).forEach((key) => {
+        formData.append(key, officeChecks[key] ? "true" : "false");
+      });
+      Object.keys(checkboxFiles).forEach((key) => {
+        if (checkboxFiles[key]) formData.append(`attachment_${key}`, checkboxFiles[key]);
+      });
+      additionalFiles.forEach((file, i) => {
+        if (file) formData.append(`additional_${i}`, file);
+      });
+      const res = await fetch("/api/operations/location/create", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Save failed");
+      setSuccess("Office checks saved successfully.");
+      setOfficeChecks({
+        jpo: false,
+        riskAssessment: false,
+        stsTransferLocationChecklist: false,
+        stsNewBaseChecklist: false,
+        moc: false,
+        mocRa: false,
+        preArrivalNotification: false,
+        contingencyPlan: false,
+        costing: false,
+      });
+      setCheckboxFiles({});
+      setAdditionalFiles([]);
+      additionalInputRefs.current.forEach((ref) => { if (ref) ref.value = ""; });
+      if (officeView === "list") {
+        const url = `/api/operations/location/list?location=${encodeURIComponent(selectedLocationId)}&year=${year}`;
+        const listRes = await fetch(url);
+        const listData = await listRes.json();
+        setRecords(listData.data || []);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDownload = (recordId, type, keyOrIndex) => {
+    const params = new URLSearchParams({ type, ...(type === "checkbox" ? { key: keyOrIndex } : { index: keyOrIndex }) });
+    window.open(`/api/operations/location/${recordId}/download?${params}`, "_blank");
+  };
+
+  const formatDate = (d) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
 
   return (
     <div className="min-h-screen bg-transparent text-white flex">
-      {/* Left Sidebar */}
       <div
         ref={sidebarRef}
-        className={`fixed left-0 top-0 h-full bg-slate-900/98 border-r border-white/20 shadow-2xl backdrop-blur-md z-50 transition-transform duration-300 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed left-0 top-0 h-full bg-slate-900/98 border-r border-white/20 shadow-2xl backdrop-blur-md z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ width: "280px" }}
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-6 border-b border-white/10">
             <h2 className="text-lg font-bold text-white">Navigation</h2>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition"
-              aria-label="Close sidebar"
-            >
+            <button onClick={() => setIsSidebarOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition" aria-label="Close sidebar">
               <span className="text-white text-lg">×</span>
             </button>
           </div>
@@ -132,11 +288,7 @@ export default function LocationsPage() {
                 <Link
                   key={tab.key}
                   href={tab.href}
-                  className={`block w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-                    activeTab === tab.key
-                      ? "bg-orange-500 text-white shadow-lg shadow-orange-500/40"
-                      : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5"
-                  }`}
+                  className={`block w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${activeTab === tab.key ? "bg-orange-500 text-white shadow-lg shadow-orange-500/40" : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5"}`}
                 >
                   {tab.label}
                 </Link>
@@ -146,307 +298,227 @@ export default function LocationsPage() {
         </div>
       </div>
 
-      {/* Sidebar Toggle Button */}
       {!isSidebarOpen && (
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/10 shadow-lg"
-          aria-label="Open sidebar"
-        >
+        <button onClick={() => setIsSidebarOpen(true)} className="fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/10 shadow-lg" aria-label="Open sidebar">
           <span className="text-white text-xl">☰</span>
         </button>
       )}
 
-      {/* Main Content */}
-      <div
-        className={`flex-1 transition-all duration-300 ${
-          isSidebarOpen ? "ml-72 pr-4" : "ml-0"
-        }`}
-      >
+      <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-72 pr-4" : "ml-0"}`}>
         <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6">
           <header className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.25em] text-sky-300">
-                Master Data
-              </p>
+              <p className="text-sm uppercase tracking-[0.25em] text-sky-300">Operations / Locations</p>
               <h1 className="text-2xl font-bold">Locations</h1>
+              <p className="text-xs text-slate-200 mt-1">Manage locations and office checks by location and year</p>
             </div>
-            <Link
-              href="/operations/sts-operations/new"
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white/80 backdrop-blur border border-white/10 hover:bg-white/20 transition"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
+            <Link href="/operations/sts-operations/new" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white/80 border border-white/10 hover:bg-white/20 transition">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
               Back to STS form
             </Link>
           </header>
 
-      {/* Add Location Form */}
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl shadow-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 border border-orange-400/30">
-            <svg
-              className="h-5 w-5 text-orange-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {/* Section toggle: Manage locations | Office checks */}
+          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => { setSection("locations"); setError(""); setSuccess(""); }}
+              className={`px-4 py-2 text-sm font-semibold transition ${section === "locations" ? "bg-orange-500 text-white" : "text-white/90 hover:bg-white/10"}`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
+              Manage locations
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSection("office-checks"); setError(""); setSuccess(""); }}
+              className={`px-4 py-2 text-sm font-semibold transition ${section === "office-checks" ? "bg-orange-500 text-white" : "text-white/90 hover:bg-white/10"}`}
+            >
+              Office checks
+            </button>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-white">Add Location</h2>
-            <p className="text-xs text-white/60 mt-0.5">
-              Register new locations for operations
-            </p>
-          </div>
-        </div>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100 backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {error}
-            </div>
-          </div>
-        )}
+          {error && (
+            <div className="rounded-xl border border-red-400/40 bg-red-950/40 px-4 py-3 text-red-200 text-sm">{error}</div>
+          )}
+          {success && (
+            <div className="rounded-xl border border-green-400/40 bg-green-950/40 px-4 py-3 text-green-200 text-sm">{success}</div>
+          )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="Enter location name"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-all backdrop-blur-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition-all hover:from-orange-600 hover:to-orange-700 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 min-w-[140px]"
-          >
-            {loading ? (
-              <>
-                <svg
-                  className="animate-spin h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Adding...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Add
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-
-      {/* Location List Table */}
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl shadow-2xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-white/10 bg-white/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 border border-sky-400/30">
-                <svg
-                  className="h-5 w-5 text-sky-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
+          {/* --- Manage locations --- */}
+          {section === "locations" && (
+            <>
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 border border-orange-400/30">
+                    <svg className="h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Add Location</h2>
+                    <p className="text-xs text-white/60 mt-0.5">Register new locations for operations</p>
+                  </div>
+                </div>
+                <form onSubmit={handleSubmitLocation} className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                      placeholder="Enter location name"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:ring-2 focus:ring-orange-500/50 outline-none"
+                    />
+                  </div>
+                  <button type="submit" disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3.5 text-sm font-semibold text-white disabled:opacity-50 min-w-[140px]">
+                    {loading ? "Adding..." : "Add"}
+                  </button>
+                </form>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Location List</h2>
-                <p className="text-xs text-white/60 mt-0.5">
-                  Manage all operation locations
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-4 py-2">
-              <svg
-                className="h-4 w-4 text-white/60"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <span className="text-sm font-semibold text-white/80">
-                {items.length} {items.length === 1 ? "Item" : "Items"}
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/5">
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
-                  #
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {items.map((item, idx) => (
-                <tr
-                  key={item._id || item.name}
-                  className="hover:bg-white/5 transition-colors duration-150"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-sm font-semibold text-white/80">
-                      {idx + 1}
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl shadow-2xl overflow-hidden">
+                <div className="px-6 py-5 border-b border-white/10 bg-white/5 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Location List</h2>
+                    <p className="text-xs text-white/60 mt-0.5">Manage all operation locations</p>
+                  </div>
+                  <span className="text-sm font-semibold text-white/80">{items.length} {items.length === 1 ? "Item" : "Items"}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-white/5">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">#</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {items.map((item, idx) => (
+                        <tr key={item._id || item.name} className="hover:bg-white/5">
+                          <td className="px-6 py-4">{idx + 1}</td>
+                          <td className="px-6 py-4 font-semibold text-white">{item.name}</td>
+                          <td className="px-6 py-4">
+                            <button type="button" onClick={() => handleDelete(item._id)} disabled={actionLoading} className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50">
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!items.length && (
+                        <tr>
+                          <td className="px-6 py-12 text-center" colSpan={3}>
+                            <p className="text-sm text-white/60">No locations found. Add your first location above.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* --- Office checks --- */}
+          {section === "office-checks" && (
+            <>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-slate-200">Location</label>
+                  <select value={selectedLocationId} onChange={handleLocationChange} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-orange-500 min-w-[180px]">
+                    <option value="">Select location</option>
+                    {locations.map((loc) => <option key={loc._id} value={loc._id}>{loc.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-slate-200">Year</label>
+                  <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-orange-500 min-w-[120px]">
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+                  <button type="button" onClick={() => setOfficeView("form")} className={`px-4 py-2 text-sm font-semibold transition ${officeView === "form" ? "bg-orange-500 text-white" : "text-white/90 hover:bg-white/10"}`}>Form</button>
+                  <button type="button" onClick={() => setOfficeView("list")} className={`px-4 py-2 text-sm font-semibold transition ${officeView === "list" ? "bg-orange-500 text-white" : "text-white/90 hover:bg-white/10"}`}>List</button>
+                </div>
+              </div>
+
+              {officeView === "form" && (
+                <form onSubmit={handleSubmitOfficeChecks} className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-8">
+                  <section>
+                    <h2 className="text-lg font-semibold text-white/90 border-b border-white/10 pb-3 mb-4">Office Checks</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {Object.entries(OFFICE_CHECK_LABELS).map(([key, label]) => (
+                        <div key={key} className="flex flex-col gap-2">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" checked={officeChecks[key] || false} onChange={() => toggleCheck(key)} className="rounded border-white/30 bg-white/5 text-green-500 focus:ring-orange-500" />
+                            <span className="text-sm text-white/90">{label}</span>
+                          </label>
+                          {officeChecks[key] && (
+                            <div className="ml-6">
+                              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(e) => handleCheckboxFile(key, e.target.files?.[0] || null)} className="block w-full text-xs text-slate-200 file:mr-2 file:rounded-lg file:border-0 file:bg-orange-500 file:px-3 file:py-1.5 file:text-white file:text-xs cursor-pointer" />
+                              {checkboxFiles[key] && <p className="mt-1 text-xs text-white/60">Selected: {checkboxFiles[key].name}</p>}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-semibold text-white">{item.name}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleDelete(item._id)}
-                      disabled={actionLoading}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-500/20 hover:text-red-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!items.length && (
-                <tr>
-                  <td className="px-6 py-12 text-center" colSpan={3}>
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 border border-white/10">
-                        <svg
-                          className="h-8 w-8 text-white/40"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white/60">
-                          No locations found
-                        </p>
-                        <p className="text-xs text-white/40 mt-1">
-                          Add your first location above to get started
-                        </p>
-                      </div>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-semibold text-white/90 border-b border-white/10 pb-3 mb-4">Additional Attachments</h2>
+                    <div className="space-y-3">
+                      {additionalFiles.map((_, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <input ref={(el) => { additionalInputRefs.current[index] = el; }} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(e) => setAdditionalFileAt(index, e.target.files?.[0] || null)} className="flex-1 text-xs text-slate-200 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-white file:text-xs cursor-pointer" />
+                          {additionalFiles[index] && <span className="text-xs text-white/60">{additionalFiles[index].name}</span>}
+                        </div>
+                      ))}
+                      <button type="button" onClick={addAdditionalSlot} className="inline-flex items-center gap-2 rounded-lg border border-dashed border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/5">+ Add attachment</button>
                     </div>
-                  </td>
-                </tr>
+                  </section>
+                  <div className="flex justify-end gap-3">
+                    <button type="button" onClick={() => setOfficeView("list")} className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white/90 hover:bg-white/10">Cancel</button>
+                    <button type="submit" disabled={submitting} className="rounded-full bg-orange-500 hover:bg-orange-600 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50">{submitting ? "Saving..." : "Save"}</button>
+                  </div>
+                </form>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+              {officeView === "list" && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+                  {loadingList ? <div className="p-12 text-center text-white/60">Loading...</div> : !selectedLocationId ? <div className="p-12 text-center text-white/60">Select a location to view the list.</div> : records.length === 0 ? <div className="p-12 text-center text-white/60">No records for this location and year. Use the Form to add one.</div> : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-slate-200 border-b border-white/10 bg-white/5">
+                            <th className="px-6 py-4 font-semibold">Location</th>
+                            <th className="px-6 py-4 font-semibold">Year</th>
+                            <th className="px-6 py-4 font-semibold">Last Uploaded</th>
+                            <th className="px-6 py-4 font-semibold">Office Checks</th>
+                            <th className="px-6 py-4 font-semibold">Attachments</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {records.map((rec) => (
+                            <tr key={rec._id} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="px-6 py-4">{rec.locationName || "—"}</td>
+                              <td className="px-6 py-4">{rec.year}</td>
+                              <td className="px-6 py-4">{formatDate(rec.lastUploaded)}</td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {rec.officeChecks && Object.entries(rec.officeChecks).map(([k, v]) => v ? <span key={k} className="rounded bg-green-500/20 text-green-300 px-1.5 py-0.5 text-xs">{OFFICE_CHECK_LABELS[k] || k}</span> : null)}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-2">
+                                  {(rec.checkboxAttachments || []).map((att) => <button key={att._id || att.key} type="button" onClick={() => handleDownload(rec._id, "checkbox", att.key)} className="text-xs text-sky-300 hover:underline">{att.fileName}</button>)}
+                                  {(rec.additionalAttachments || []).map((att, i) => <button key={att._id || i} type="button" onClick={() => handleDownload(rec._id, "additional", i)} className="text-xs text-sky-300 hover:underline">{att.fileName}</button>)}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -41,7 +41,7 @@ const sidebarTabs = [
   },
   { key: "hose-transfer", label: "Hose transfer record", href: "#" },
   { key: "forms", label: "Forms and checklist", href: "#" },
-  { key: "ports", label: "Ports and Terminals", href: "#" },
+  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
   {
     key: "cargos",
     label: "Cargo types",
