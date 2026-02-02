@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { connectDB } from "@/lib/config/connection";
-import LocationOfficeCheck from "@/lib/mongodb/models/operations/LocationOfficeCheck";
-import { OFFICE_CHECK_KEYS_EXPORT } from "@/lib/mongodb/models/operations/LocationOfficeCheck";
+import LocationOfficeCheck from "@/lib/mongodb/models/operations/operations-locations/LocationOfficeCheck";
+import { OFFICE_CHECK_KEYS_EXPORT } from "@/lib/mongodb/models/operations/operations-locations/LocationOfficeCheck";
 
 export const runtime = "nodejs";
 

@@ -65,7 +65,6 @@ const sidebarTabs = [
       },
     ],
   },
-  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
   {
     key: "cargos",
     label: "Cargo types",
@@ -138,7 +137,7 @@ export default function NewOperationPage() {
       // Auto-expand forms module
       setExpandedModules((prev) => new Set([...prev, "forms"]));
     } else if (pathname.startsWith("/operations/sts-operations/new/locations")) {
-      setActiveTab("ports");
+      setActiveTab("locations");
     } else if (pathname.startsWith("/operations/sts-operations/new/cargos")) {
       setActiveTab("cargos");
     } else if (pathname.startsWith("/operations/sts-operations/new/mooringmaster")) {
@@ -342,7 +341,7 @@ export default function NewOperationPage() {
                   ) : (
                     <Link
                       href={tab.href}
-                      className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                      className={`group flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
                         activeTab === tab.key
                           ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/40 scale-[1.02]"
                           : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5 hover:border-white/10 hover:scale-[1.01]"
@@ -379,12 +378,8 @@ export default function NewOperationPage() {
         </button>
       )}
 
-      {/* Main Content */}
-      <div
-        className={`flex-1 transition-all duration-300 ${
-          isSidebarOpen ? "ml-0 md:ml-72" : "ml-0"
-        }`}
-      >
+      {/* Main Content - fixed left margin so content stays in place when sidebar collapses */}
+      <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
           <header className="mb-6 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">

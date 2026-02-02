@@ -16,6 +16,16 @@ const OFFICE_CHECK_LABELS = {
   costing: "Costing",
 };
 
+// Year range for dropdown (e.g. current year - 5 to current year + 2)
+function getYearsRange() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let y = currentYear - 5; y <= currentYear + 2; y++) {
+    years.push(y);
+  }
+  return years.sort((a, b) => b - a);
+}
+
 const sidebarTabs = [
   { key: "documentation", label: "Documentation", href: "/operations/sts-operations/new" },
   { key: "compatibility", label: "Compatibility", href: "/operations/sts-operations/new/compatibility" },
@@ -70,7 +80,7 @@ export default function LocationsPage() {
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [selectedLocationName, setSelectedLocationName] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
-  const [years, setYears] = useState([new Date().getFullYear()]);
+  const [years, setYears] = useState(() => getYearsRange());
   const [officeView, setOfficeView] = useState("form"); // "form" | "list"
   const [records, setRecords] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -151,27 +161,34 @@ export default function LocationsPage() {
     }
   }, [selectedLocationId, locations]);
 
-  // Load years for office checks
+  // Load years for office checks: merge API years with standard range so dropdown always has options
   useEffect(() => {
     const loadYears = async () => {
       try {
         const res = await fetch("/api/operations/location/list");
+        const baseYears = getYearsRange();
         if (!res.ok) {
+          setYears(baseYears);
           return;
         }
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
+          setYears(baseYears);
           return;
         }
         const data = await res.json();
-        if (data.success && Array.isArray(data.years)) {
-          const merged = [...new Set([year, ...data.years])].sort((a, b) => b - a);
+        if (data.success && Array.isArray(data.years) && data.years.length > 0) {
+          const merged = [...new Set([...baseYears, ...data.years])].sort((a, b) => b - a);
           setYears(merged);
+        } else {
+          setYears(baseYears);
         }
-      } catch (_) {}
+      } catch (_) {
+        setYears(getYearsRange());
+      }
     };
     loadYears();
-  }, [year]);
+  }, []);
 
   // Load office checks list when on list view
   useEffect(() => {
@@ -447,7 +464,7 @@ export default function LocationsPage() {
                   ) : (
                     <Link
                       href={tab.href}
-                      className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                      className={`group flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
                         activeTab === tab.key
                           ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/40 scale-[1.02]"
                           : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5 hover:border-white/10 hover:scale-[1.01]"
@@ -480,7 +497,7 @@ export default function LocationsPage() {
         </button>
       )}
 
-      <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-72 pr-4" : "ml-0"}`}>
+      <div className="flex-1 min-w-0 ml-72 pr-4">
         <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6">
           <header className="flex items-center justify-between gap-4">
             <div>
