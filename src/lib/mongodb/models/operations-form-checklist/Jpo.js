@@ -3,6 +3,10 @@ import Counter from "../generateFormCode";
 
 const JpoSchema = new mongoose.Schema(
   {
+    location: {
+      locationId: { type: mongoose.Schema.Types.ObjectId, ref: "Location" },
+      name: { type: String },
+    },
     formCode: {
       type: String,
       unique: true,

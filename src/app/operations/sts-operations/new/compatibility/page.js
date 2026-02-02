@@ -224,9 +224,9 @@ export default function CompatibilityPage() {
         </button>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 min-w-0 ml-0 md:ml-72">
-        <div className="mx-auto max-w-5xl px-6 py-8">
+      {/* Main Content - same layout as other Operations forms */}
+      <div className="flex-1 min-w-0 ml-0 md:ml-72 pr-4">
+        <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6">
           <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.25em] text-sky-300">

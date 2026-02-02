@@ -76,14 +76,30 @@ export default function JpoFormPage() {
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
     uploadedBy: "",
+    locationId: "",
   });
-  const [formCode, setFormCode] = useState("");
+  const [locations, setLocations] = useState([]);
   const [existingRecord, setExistingRecord] = useState(null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await fetch("/api/master/locations/list");
+        const data = await res.json();
+        if (res.ok && data.locations) {
+          setLocations(data.locations);
+        }
+      } catch (err) {
+        setError("Failed to load locations");
+      }
+    };
+    fetchLocations();
+  }, []);
 
   useEffect(() => {
     if (editId) {
@@ -96,12 +112,12 @@ export default function JpoFormPage() {
             const record = data.data.find((r) => r._id === editId);
             if (record) {
               setExistingRecord(record);
-              setFormCode(record.formCode);
               setForm({
                 date: record.date
                   ? new Date(record.date).toISOString().split("T")[0]
                   : new Date().toISOString().split("T")[0],
                 uploadedBy: record.uploadedBy?.name || "",
+                locationId: record.location?.locationId?.toString() || "",
               });
             } else {
               setError("Record not found");
@@ -114,22 +130,6 @@ export default function JpoFormPage() {
         }
       };
       fetchRecord();
-    } else {
-      const fetchFormCode = async () => {
-        setLoading(true);
-        try {
-          const res = await fetch("/api/operations/form-checklist/jpo/code");
-          const data = await res.json();
-          if (res.ok && data.success) {
-            setFormCode(data.formCode);
-          }
-        } catch (err) {
-          setError("Failed to generate form code");
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchFormCode();
     }
   }, [editId]);
 
@@ -208,6 +208,12 @@ export default function JpoFormPage() {
       return;
     }
 
+    if (!form.locationId?.trim()) {
+      setError("Please select a location");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setUploading(true);
     setError("");
     setSuccess("");
@@ -217,6 +223,7 @@ export default function JpoFormPage() {
       formData.append("file", file);
       formData.append("date", form.date);
       formData.append("uploadedBy", form.uploadedBy.trim());
+      formData.append("locationId", form.locationId.trim());
 
       const apiUrl = editId
         ? `/api/operations/form-checklist/jpo/${editId}/update`
@@ -242,6 +249,7 @@ export default function JpoFormPage() {
       setForm({
         date: new Date().toISOString().split("T")[0],
         uploadedBy: "",
+        locationId: "",
       });
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -435,7 +443,7 @@ export default function JpoFormPage() {
                 <p className="text-xs text-white/60 mt-0.5">
                   {editId
                     ? "Upload updated file to create a new version. Current version will be preserved."
-                    : "Upload JPO file. Form code and version will be auto-generated."}
+                    : "Upload JPO file. Select location and version will be auto-generated."}
                 </p>
               </div>
             </div>
@@ -452,7 +460,7 @@ export default function JpoFormPage() {
             )}
             {loading && (
               <div className="mb-4 rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-100 backdrop-blur-sm">
-                {editId ? "Loading record..." : "Generating form code..."}
+                {editId ? "Loading record..." : "Loading..."}
               </div>
             )}
 
@@ -464,12 +472,6 @@ export default function JpoFormPage() {
 
             {existingRecord && (
               <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm space-y-2">
-                {existingRecord.formCode && (
-                  <p className="text-sky-200">
-                    <span className="font-semibold">Form Code:</span>{" "}
-                    <span className="font-mono">{existingRecord.formCode}</span>
-                  </p>
-                )}
                 <p className="text-sky-200">
                   <span className="font-semibold">Current Version:</span> v
                   {existingRecord.version}
@@ -481,16 +483,27 @@ export default function JpoFormPage() {
               </div>
             )}
 
-            {!existingRecord && formCode && (
-              <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm">
-                <p className="text-sky-200">
-                  <span className="font-semibold">Form Code:</span>{" "}
-                  <span className="font-mono">{formCode}</span>
-                </p>
-              </div>
-            )}
-
             <div className="space-y-4">
+              <div>
+                <label htmlFor="locationId" className="block text-sm font-medium text-white/90 mb-2">
+                  Location <span className="text-red-400">*</span>
+                </label>
+                <select
+                  id="locationId"
+                  name="locationId"
+                  value={form.locationId}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-all backdrop-blur-sm"
+                  required
+                >
+                  <option value="">Select location</option>
+                  {locations.map((loc) => (
+                    <option key={loc._id} value={loc._id}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label htmlFor="date" className="block text-sm font-medium text-white/90 mb-2">
                   Date <span className="text-red-400">*</span>
@@ -641,7 +654,7 @@ export default function JpoFormPage() {
             </Link>
             <button
               type="submit"
-              disabled={uploading || loading || !file || !form.uploadedBy?.trim() || !form.date}
+              disabled={uploading || loading || !file || !form.uploadedBy?.trim() || !form.date || !form.locationId?.trim()}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading

@@ -21,6 +21,7 @@ export async function POST(req, { params }) {
     const file = formData.get("file");
     const date = formData.get("date");
     const uploadedBy = formData.get("uploadedBy");
+    const locationId = formData.get("locationId");
 
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -62,7 +63,16 @@ export async function POST(req, { params }) {
     const filePath = path.join(uploadDir, uniqueFileName);
     fs.writeFileSync(filePath, buffer);
 
+    const location = existingRecord.location || {};
+    let locationName = location.name;
+    if (locationId) {
+      const { default: Location } = await import("@/lib/mongodb/models/Location");
+      const locationDoc = await Location.findById(locationId).lean();
+      locationName = locationDoc?.name || locationName;
+    }
+
     const record = await Jpo.create({
+      location: { locationId: locationId || location.locationId, name: locationName },
       formCode: existingRecord.formCode,
       filePath: `uploads/operations/jpo/${existingRecord.formCode}/v${nextVersion}/${uniqueFileName}`,
       version: nextVersion,

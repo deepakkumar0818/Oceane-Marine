@@ -93,18 +93,36 @@ export default function JpoListPage() {
   const sidebarRef = useRef(null);
   
   const [records, setRecords] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(null);
   const [year, setYear] = useState(currentYear);
+  const [locationId, setLocationId] = useState("");
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await fetch("/api/master/locations/list");
+        const data = await res.json();
+        if (res.ok && data.locations) {
+          setLocations(data.locations);
+        }
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   const fetchRecords = async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = year 
-        ? `/api/operations/form-checklist/jpo/list?year=${year}`
-        : "/api/operations/form-checklist/jpo/list";
+      const params = new URLSearchParams();
+      if (year) params.set("year", year);
+      if (locationId) params.set("locationId", locationId);
+      const url = `/api/operations/form-checklist/jpo/list${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) {
@@ -120,7 +138,7 @@ export default function JpoListPage() {
 
   useEffect(() => {
     fetchRecords();
-  }, [year]);
+  }, [year, locationId]);
 
   const handleDownload = async (record) => {
     setDownloading(record._id);
@@ -329,6 +347,23 @@ export default function JpoListPage() {
                 ))}
               </select>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                Location
+              </span>
+              <select
+                className="rounded-full px-3 py-1 text-xs bg-white/5 border border-white/10 text-white"
+                value={locationId || ""}
+                onChange={(e) => setLocationId(e.target.value)}
+              >
+                <option value="">All locations</option>
+                {locations.map((loc) => (
+                  <option key={loc._id} value={loc._id}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
               <Link
                 href="/operations/sts-operations/new/form-checklist/jpo/form"
@@ -354,7 +389,7 @@ export default function JpoListPage() {
 
         {records.length === 0 ? (
           <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
-            <p className="text-white/60">No records found for the selected year.</p>
+            <p className="text-white/60">No records found for the selected year and location.</p>
             <Link
               href="/operations/sts-operations/new/form-checklist/jpo/form"
               className="mt-4 inline-block px-6 py-3 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition"
@@ -369,7 +404,7 @@ export default function JpoListPage() {
                 <thead className="bg-white/5 border-b border-white/10">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Form Code
+                      Location
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
                       Version
@@ -392,8 +427,8 @@ export default function JpoListPage() {
                   {records.map((record) => (
                     <tr key={record._id} className="hover:bg-white/5 transition">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-mono text-white">
-                          {record.formCode || "—"}
+                        <span className="text-sm text-white/90">
+                          {record.location?.name || "—"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

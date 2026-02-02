@@ -77,7 +77,6 @@ export default function InspectionChecklistFormPage() {
     date: new Date().toISOString().split("T")[0],
     uploadedBy: "",
   });
-  const [formCode, setFormCode] = useState("");
   const [existingRecord, setExistingRecord] = useState(null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -96,7 +95,6 @@ export default function InspectionChecklistFormPage() {
             const record = data.data.find((r) => r._id === editId);
             if (record) {
               setExistingRecord(record);
-              setFormCode(record.formCode);
               setForm({
                 date: record.date
                   ? new Date(record.date).toISOString().split("T")[0]
@@ -114,22 +112,6 @@ export default function InspectionChecklistFormPage() {
         }
       };
       fetchRecord();
-    } else {
-      const fetchFormCode = async () => {
-        setLoading(true);
-        try {
-          const res = await fetch("/api/operations/form-checklist/inspection-checklist/code");
-          const data = await res.json();
-          if (res.ok && data.success) {
-            setFormCode(data.formCode);
-          }
-        } catch (err) {
-          setError("Failed to generate form code");
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchFormCode();
     }
   }, [editId]);
 
@@ -435,7 +417,7 @@ export default function InspectionChecklistFormPage() {
                 <p className="text-xs text-white/60 mt-0.5">
                   {editId
                     ? "Upload updated file to create a new version. Current version will be preserved."
-                    : "Upload Inspection Checklist file. Form code and version will be auto-generated."}
+                    : "Upload Inspection Checklist file. Version will be auto-generated."}
                 </p>
               </div>
             </div>
@@ -452,7 +434,7 @@ export default function InspectionChecklistFormPage() {
             )}
             {loading && (
               <div className="mb-4 rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-100 backdrop-blur-sm">
-                {editId ? "Loading record..." : "Generating form code..."}
+                {editId ? "Loading record..." : "Loading..."}
               </div>
             )}
 
@@ -464,12 +446,6 @@ export default function InspectionChecklistFormPage() {
 
             {existingRecord && (
               <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm space-y-2">
-                {existingRecord.formCode && (
-                  <p className="text-sky-200">
-                    <span className="font-semibold">Form Code:</span>{" "}
-                    <span className="font-mono">{existingRecord.formCode}</span>
-                  </p>
-                )}
                 <p className="text-sky-200">
                   <span className="font-semibold">Current Version:</span> v
                   {existingRecord.version}
@@ -477,15 +453,6 @@ export default function InspectionChecklistFormPage() {
                 <p className="text-sky-300/80 text-xs mt-1">
                   Uploading a new file will create version{" "}
                   {(Number.parseFloat(existingRecord.version) + 0.1).toFixed(1)}
-                </p>
-              </div>
-            )}
-
-            {!existingRecord && formCode && (
-              <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm">
-                <p className="text-sky-200">
-                  <span className="font-semibold">Form Code:</span>{" "}
-                  <span className="font-mono">{formCode}</span>
                 </p>
               </div>
             )}
