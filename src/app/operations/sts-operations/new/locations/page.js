@@ -53,10 +53,15 @@ const sidebarTabs = [
         label: "Inspection Checklist",
         href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
       },
+      {
+        key: "manual",
+        label: "Manual",
+        href: "/operations/sts-operations/new/form-checklist/manual/form",
+      },
     ],
   },
-  { key: "locations", label: "Locations", href: "/operations/sts-operations/new/locations" },
   { key: "cargos", label: "Cargo types", href: "/operations/sts-operations/new/cargos" },
+  { key: "locations", label: "Locations", href: "/operations/sts-operations/new/locations" },
   { key: "mooring", label: "Mooring masters", href: "/operations/sts-operations/new/mooringmaster" },
 ];
 

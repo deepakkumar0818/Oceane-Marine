@@ -39,6 +39,11 @@ const sidebarTabs = [
         label: "Inspection Checklist",
         href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
       },
+      {
+        key: "manual",
+        label: "Manual",
+        href: "/operations/sts-operations/new/form-checklist/manual/form",
+      },
     ],
   },
   {
@@ -228,16 +233,19 @@ export default function StsChecklistListPage() {
                       {expandedModules.has(tab.key) && (
                         <div className="ml-4 space-y-1 mt-1.5 pl-4 border-l-2 border-orange-500/30">
                           {tab.submodules.map((submodule) => {
+                            const basePath = submodule.href.replace(/\/form$|\/list$/, "") || submodule.href;
+                            const pathNorm = pathname.replace(/\/$/, "");
                             const isActiveSub =
-                              pathname.startsWith(submodule.href.split("/form")[0]) ||
-                              pathname.startsWith(submodule.href.split("/list")[0]);
+                              pathNorm === basePath ||
+                              pathNorm.startsWith(basePath + "/form") ||
+                              pathNorm.startsWith(basePath + "/list");
                             return (
                               <Link
                                 key={submodule.key}
                                 href={submodule.href}
                                 className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border ${
                                   isActiveSub
-                                    ? "bg-white/20 text-white border-orange-400/50 shadow-md"
+                                    ? "bg-gradient-to-r from-orange-500/90 to-orange-600/90 text-white border-orange-400 shadow-lg"
                                     : "text-white/80 hover:bg-white/10 hover:text-white border-white/5 hover:border-white/10"
                                 }`}
                               >
@@ -321,7 +329,7 @@ export default function StsChecklistListPage() {
                 ))}
               </select>
             </div>
-            <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+            <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
               <Link
                 href="/operations/sts-operations/new/form-checklist/sts-checklist/form"
                 className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"

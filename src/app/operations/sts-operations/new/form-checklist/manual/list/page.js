@@ -82,7 +82,7 @@ function getYears() {
   return years;
 }
 
-export default function JpoListPage() {
+export default function ManualListPage() {
   const router = useRouter();
   const pathname = usePathname();
   const currentYear = new Date().getFullYear();
@@ -91,7 +91,7 @@ export default function JpoListPage() {
   const [activeTab, setActiveTab] = useState("forms");
   const [expandedModules, setExpandedModules] = useState(new Set(["forms"]));
   const sidebarRef = useRef(null);
-  
+
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,9 +102,9 @@ export default function JpoListPage() {
     setLoading(true);
     setError(null);
     try {
-      const url = year 
-        ? `/api/operations/form-checklist/jpo/list?year=${year}`
-        : "/api/operations/form-checklist/jpo/list";
+      const url = year
+        ? `/api/operations/form-checklist/manual/list?year=${year}`
+        : "/api/operations/form-checklist/manual/list";
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) {
@@ -126,7 +126,7 @@ export default function JpoListPage() {
     setDownloading(record._id);
     try {
       const res = await fetch(
-        `/api/operations/form-checklist/jpo/${record._id}/download`
+        `/api/operations/form-checklist/manual/${record._id}/download`
       );
 
       if (!res.ok) {
@@ -137,7 +137,7 @@ export default function JpoListPage() {
       const url = globalThis.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = record.filePath.split("/").pop() || `jpo-v${record.version}.pdf`;
+      a.download = record.filePath.split("/").pop() || `manual-v${record.version}.pdf`;
       document.body.appendChild(a);
       a.click();
       globalThis.URL.revokeObjectURL(url);
@@ -150,7 +150,7 @@ export default function JpoListPage() {
   };
 
   const handleEdit = (record) => {
-    router.push(`/operations/sts-operations/new/form-checklist/jpo/form?edit=${record._id}`);
+    router.push(`/operations/sts-operations/new/form-checklist/manual/form?edit=${record._id}`);
   };
 
   if (loading) {
@@ -305,11 +305,11 @@ export default function JpoListPage() {
         <header className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
-              Operations / Forms & Checklist / JPO
+              Operations / Forms & Checklist / Manual
             </p>
-            <h1 className="text-2xl font-bold text-white">JPO</h1>
+            <h1 className="text-2xl font-bold text-white">Manual</h1>
             <p className="text-xs text-slate-200 mt-1">
-              View and manage all JPO records
+              View and manage all Manual records
             </p>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
@@ -331,16 +331,16 @@ export default function JpoListPage() {
             </div>
             <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
               <Link
-                href="/operations/sts-operations/new/form-checklist/jpo/form"
+                href="/operations/sts-operations/new/form-checklist/manual/form"
                 className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
               >
-                JPO Form
+                Manual Form
               </Link>
               <Link
-                href="/operations/sts-operations/new/form-checklist/jpo/list"
+                href="/operations/sts-operations/new/form-checklist/manual/list"
                 className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
               >
-                JPO List
+                Manual List
               </Link>
             </div>
           </div>
@@ -356,7 +356,7 @@ export default function JpoListPage() {
           <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
             <p className="text-white/60">No records found for the selected year.</p>
             <Link
-              href="/operations/sts-operations/new/form-checklist/jpo/form"
+              href="/operations/sts-operations/new/form-checklist/manual/form"
               className="mt-4 inline-block px-6 py-3 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition"
             >
               Upload New Record
@@ -443,4 +443,3 @@ export default function JpoListPage() {
     </div>
   );
 }
-
