@@ -63,7 +63,7 @@ const sidebarTabs = [
   },
 ];
 
-export default function JpoFormPage() {
+export default function ManualFormPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -90,7 +90,7 @@ export default function JpoFormPage() {
       const fetchRecord = async () => {
         setLoading(true);
         try {
-          const res = await fetch("/api/operations/form-checklist/jpo/list");
+          const res = await fetch("/api/operations/form-checklist/manual/list");
           const data = await res.json();
           if (res.ok && data.data) {
             const record = data.data.find((r) => r._id === editId);
@@ -118,7 +118,7 @@ export default function JpoFormPage() {
       const fetchFormCode = async () => {
         setLoading(true);
         try {
-          const res = await fetch("/api/operations/form-checklist/jpo/code");
+          const res = await fetch("/api/operations/form-checklist/manual/code");
           const data = await res.json();
           if (res.ok && data.success) {
             setFormCode(data.formCode);
@@ -219,8 +219,8 @@ export default function JpoFormPage() {
       formData.append("uploadedBy", form.uploadedBy.trim());
 
       const apiUrl = editId
-        ? `/api/operations/form-checklist/jpo/${editId}/update`
-        : "/api/operations/form-checklist/jpo/create";
+        ? `/api/operations/form-checklist/manual/${editId}/update`
+        : "/api/operations/form-checklist/manual/create";
 
       const res = await fetch(apiUrl, {
         method: "POST",
@@ -249,7 +249,7 @@ export default function JpoFormPage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
 
       setTimeout(() => {
-        router.push("/operations/sts-operations/new/form-checklist/jpo/list");
+        router.push("/operations/sts-operations/new/form-checklist/manual/list");
       }, 2000);
     } catch (err) {
       setError(err.message);
@@ -399,28 +399,29 @@ export default function JpoFormPage() {
           <header className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <p className="text-sm uppercase tracking-[0.25em] text-sky-300">
-                Operations / Forms & Checklist / JPO
+                Operations / Forms & Checklist / Manual
               </p>
               <h1 className="text-2xl font-bold text-white">
-                {editId ? "Update JPO" : "JPO"}
+                {editId ? "Update Manual" : "Manual"}
               </h1>
             </div>
             <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
               <Link
-                href="/operations/sts-operations/new/form-checklist/jpo/form"
+                href="/operations/sts-operations/new/form-checklist/manual/form"
                 className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
               >
-                JPO Form
+                Manual Form
               </Link>
               <Link
-                href="/operations/sts-operations/new/form-checklist/jpo/list"
+                href="/operations/sts-operations/new/form-checklist/manual/list"
                 className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
               >
-                JPO List
+                Manual List
               </Link>
             </div>
           </header>
 
+          {/* Single form card - same style as Cargo Types */}
           <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl shadow-2xl">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 border border-orange-400/30">
@@ -430,12 +431,12 @@ export default function JpoFormPage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">
-                  {editId ? "Update JPO" : "Add JPO"}
+                  {editId ? "Update Manual" : "Add Manual"}
                 </h2>
                 <p className="text-xs text-white/60 mt-0.5">
                   {editId
                     ? "Upload updated file to create a new version. Current version will be preserved."
-                    : "Upload JPO file. Form code and version will be auto-generated."}
+                    : "Upload Manual file. Form code and version will be auto-generated."}
                 </p>
               </div>
             </div>
@@ -634,7 +635,7 @@ export default function JpoFormPage() {
 
           <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">
             <Link
-              href="/operations/sts-operations/new/form-checklist/jpo/list"
+              href="/operations/sts-operations/new/form-checklist/manual/list"
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-medium text-white hover:bg-white/10 transition"
             >
               Cancel
@@ -660,4 +661,3 @@ export default function JpoFormPage() {
     </div>
   );
 }
-

@@ -39,6 +39,11 @@ const sidebarTabs = [
         label: "Inspection Checklist",
         href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
       },
+      {
+        key: "manual",
+        label: "Manual",
+        href: "/operations/sts-operations/new/form-checklist/manual/form",
+      },
     ],
   },
   {
@@ -126,13 +131,19 @@ export default function MooringMasterPage() {
     }
   };
 
+  // Match exact href for top-level tabs so /new/mooringmaster doesn't match /new (Documentation)
   const activeTab =
-    sidebarTabs.find(
-      (tab) =>
-        pathname === tab.href ||
-        (pathname.startsWith(tab.href) &&
-          (pathname.length === tab.href.length || pathname[tab.href.length] === "/"))
-    )?.key || "mooring";
+    sidebarTabs.find((tab) => {
+      if (tab.submodules) {
+        return tab.submodules.some(
+          (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/")
+        );
+      }
+      if (tab.href) {
+        return pathname === tab.href || pathname === tab.href + "/";
+      }
+      return false;
+    })?.key || "mooring";
 
   return (
     <div className="min-h-screen bg-transparent text-white flex">

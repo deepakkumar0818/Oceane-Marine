@@ -63,6 +63,11 @@ const sidebarTabs = [
         label: "Inspection Checklist",
         href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
       },
+      {
+        key: "manual",
+        label: "Manual",
+        href: "/operations/sts-operations/new/form-checklist/manual/form",
+      },
     ],
   },
   {
@@ -383,12 +388,6 @@ export default function NewOperationPage() {
         <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
           <header className="mb-6 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Link
-                href="/dashboard"
-                className="flex h-10 w-10 items-center  cursor-pointer justify-center rounded-full bg-white/10 border border-white/10 hover:bg-white/20 transition"
-              >
-                <span className="text-lg">←</span>
-              </Link>
               <div>
                 <p className="text-sm uppercase tracking-[0.25em] text--200 font-semibold weight-bold">
                   STS Management System

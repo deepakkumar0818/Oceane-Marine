@@ -39,9 +39,13 @@ const sidebarTabs = [
         label: "Inspection Checklist",
         href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
       },
+      {
+        key: "manual",
+        label: "Manual",
+        href: "/operations/sts-operations/new/form-checklist/manual/form",
+      },
     ],
   },
-  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
   {
     key: "cargos",
     label: "Cargo types",
@@ -256,7 +260,7 @@ export default function QuotationFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-white flex">
+    <div className="min-h-screen w-full flex-1 min-w-0 bg-transparent text-white flex">
       {/* Left Sidebar */}
       <div
         ref={sidebarRef}
@@ -323,16 +327,19 @@ export default function QuotationFormPage() {
                       {expandedModules.has(tab.key) && (
                         <div className="ml-4 space-y-1 mt-1.5 pl-4 border-l-2 border-orange-500/30">
                           {tab.submodules.map((submodule) => {
+                            const basePath = submodule.href.replace(/\/form$|\/list$/, "") || submodule.href;
+                            const pathNorm = pathname.replace(/\/$/, "");
                             const isActiveSub =
-                              pathname.startsWith(submodule.href.split("/form")[0]) ||
-                              pathname.startsWith(submodule.href.split("/list")[0]);
+                              pathNorm === basePath ||
+                              pathNorm.startsWith(basePath + "/form") ||
+                              pathNorm.startsWith(basePath + "/list");
                             return (
                               <Link
                                 key={submodule.key}
                                 href={submodule.href}
                                 className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border ${
                                   isActiveSub
-                                    ? "bg-white/20 text-white border-orange-400/50 shadow-md"
+                                    ? "bg-gradient-to-r from-orange-500/90 to-orange-600/90 text-white border-orange-400 shadow-lg"
                                     : "text-white/80 hover:bg-white/10 hover:text-white border-white/5 hover:border-white/10"
                                 }`}
                               >
@@ -386,62 +393,75 @@ export default function QuotationFormPage() {
         </button>
       )}
 
-      {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0 md:ml-72" : "ml-0"}`}>
-        <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-        <header className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
-              Operations / Forms & Checklist / Quotation
-            </p>
-            <h1 className="text-2xl font-bold text-white">
-              {editId ? "Update Quotation" : "Quotation"}
-            </h1>
-            <p className="text-xs text-slate-200 mt-1">
-              {editId
-                ? "Upload updated file to create a new version. Current version will be preserved."
-                : "Upload Quotation file. Form code and version will be auto-generated."}
-            </p>
-          </div>
-          <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
-            <Link
-              href="/operations/sts-operations/new/form-checklist/quotations/form"
-              className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
-            >
-              Quotation Form
-            </Link>
-            <Link
-              href="/operations/sts-operations/new/form-checklist/quotations/list"
-              className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
-            >
-              Quotation List
-            </Link>
-          </div>
-        </header>
+      {/* Main Content - same layout as Cargo Types (full-width cards) */}
+      <div className="flex-1 min-w-0 ml-0 md:ml-72 pr-4">
+        <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6">
+          <header className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm uppercase tracking-[0.25em] text-sky-300">
+                Operations / Forms & Checklist / Quotation
+              </p>
+              <h1 className="text-2xl font-bold text-white">
+                {editId ? "Update Quotation" : "Quotation"}
+              </h1>
+            </div>
+            <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+              <Link
+                href="/operations/sts-operations/new/form-checklist/quotations/form"
+                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
+              >
+                Quotation Form
+              </Link>
+              <Link
+                href="/operations/sts-operations/new/form-checklist/quotations/list"
+                className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+              >
+                Quotation List
+              </Link>
+            </div>
+          </header>
 
-        {error && (
-          <div className="bg-red-950/40 border border-red-500/40 rounded-xl px-4 py-3 text-red-200 text-sm font-medium">
-            {error}
-          </div>
-        )}
+          {/* Single form card - same style as Cargo Types */}
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6 backdrop-blur-xl shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 border border-orange-400/30">
+                <svg className="h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {editId ? "Update Quotation" : "Add Quotation"}
+                </h2>
+                <p className="text-xs text-white/60 mt-0.5">
+                  {editId
+                    ? "Upload updated file to create a new version. Current version will be preserved."
+                    : "Upload Quotation file. Form code and version will be auto-generated."}
+                </p>
+              </div>
+            </div>
 
-        {success && (
-          <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl px-4 py-3 text-emerald-200 text-sm font-medium">
-            {success}
-          </div>
-        )}
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100 backdrop-blur-sm">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="mb-4 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 backdrop-blur-sm">
+                {success}
+              </div>
+            )}
+            {loading && (
+              <div className="mb-4 rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-100 backdrop-blur-sm">
+                {editId ? "Loading record..." : "Generating form code..."}
+              </div>
+            )}
 
-        {loading && (
-          <div className="bg-blue-950/40 border border-blue-500/40 rounded-xl px-4 py-3 text-blue-200 text-sm font-medium">
-            {editId ? "Loading record..." : "Generating form code..."}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-6">
-            <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3">
-              Basic Information
-            </h2>
+            <form onSubmit={handleSubmit} className="w-full space-y-6">
+              <section className="w-full space-y-4">
+                <h3 className="text-lg font-semibold text-white border-b border-white/10 pb-3">
+                  Basic Information
+                </h3>
 
             {existingRecord && (
               <div className="bg-sky-950/40 border border-sky-500/40 rounded-lg px-4 py-3 text-sm space-y-2">
@@ -473,10 +493,7 @@ export default function QuotationFormPage() {
 
             <div className="space-y-4">
               <div>
-                <label
-                  htmlFor="date"
-                  className="block text-sm font-medium text-white/90 mb-2"
-                >
+                <label htmlFor="date" className="block text-sm font-medium text-white/90 mb-2">
                   Date <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -485,16 +502,12 @@ export default function QuotationFormPage() {
                   name="date"
                   value={form.date}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-all backdrop-blur-sm"
                   required
                 />
               </div>
-
               <div>
-                <label
-                  htmlFor="uploadedBy"
-                  className="block text-sm font-medium text-white/90 mb-2"
-                >
+                <label htmlFor="uploadedBy" className="block text-sm font-medium text-white/90 mb-2">
                   Uploaded By <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -503,18 +516,18 @@ export default function QuotationFormPage() {
                   name="uploadedBy"
                   value={form.uploadedBy}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   placeholder="Enter your name"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-all backdrop-blur-sm"
                   required
                 />
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-6">
-            <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3">
+          <section className="w-full pt-6 border-t border-white/10 space-y-4">
+            <h3 className="text-lg font-semibold text-white border-b border-white/10 pb-3">
               File Upload
-            </h2>
+            </h3>
 
             <div className="space-y-4">
               {!file ? (
@@ -623,14 +636,14 @@ export default function QuotationFormPage() {
           <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">
             <Link
               href="/operations/sts-operations/new/form-checklist/quotations/list"
-              className="px-6 py-3 rounded-lg border border-white/20 bg-white/5 text-white font-medium hover:bg-white/10 transition"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-medium text-white hover:bg-white/10 transition"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={uploading || loading || !file || !form.uploadedBy?.trim() || !form.date}
-              className="px-6 py-3 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading
                 ? editId
@@ -641,7 +654,8 @@ export default function QuotationFormPage() {
                 : "Upload File"}
             </button>
           </div>
-        </form>
+            </form>
+          </div>
         </div>
       </div>
     </div>

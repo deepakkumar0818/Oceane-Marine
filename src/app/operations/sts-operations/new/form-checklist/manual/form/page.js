@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import QhseSidebar from "../../../../../../components/GoToDashBoardButton";
 import SideBarSkeleton from "../../../../../../components/GoToDashBoardButton";
-import StsChecklistFormPage from "./StsChecklistFormPage";
+import ManualFormPage from "./ManualFormPage";
 
-export default function StsChecklistFormPageWrapper() {
+export default function ManualFormPageWrapper() {
   return (
     <div className="min-h-screen bg-transparent text-white flex">
       {/* Sidebar */}
@@ -17,12 +17,12 @@ export default function StsChecklistFormPageWrapper() {
           fallback={
             <div className="flex-1 ml-72 flex items-center justify-center">
               <p className="text-white/60">
-                Loading audit inspection planner form page…
+                Loading manual form page…
               </p>
             </div>
           }
         >
-          <StsChecklistFormPage />
+          <ManualFormPage />
         </Suspense>
       </div>
     </div>

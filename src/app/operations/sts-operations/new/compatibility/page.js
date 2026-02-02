@@ -31,6 +31,11 @@ const sidebarTabs = [
         label: "Inspection Checklist",
         href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
       },
+      {
+        key: "manual",
+        label: "Manual",
+        href: "/operations/sts-operations/new/form-checklist/manual/form",
+      },
     ],
   },
   { key: "cargos", label: "Cargo types", href: "/operations/sts-operations/new/cargos" },
