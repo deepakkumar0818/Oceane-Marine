@@ -8,12 +8,16 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const year = searchParams.get("year");
+    const locationId = searchParams.get("locationId");
 
     let query = {};
     if (year) {
       const startDate = new Date(`${year}-01-01`);
       const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
       query.date = { $gte: startDate, $lte: endDate };
+    }
+    if (locationId) {
+      query["location.locationId"] = locationId;
     }
 
     const records = await Jpo.find(query)

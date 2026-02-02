@@ -20,6 +20,7 @@ export async function POST(req) {
     const file = formData.get("file");
     const date = formData.get("date");
     const uploadedByName = formData.get("uploadedBy");
+    const locationId = formData.get("locationId");
 
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -28,6 +29,14 @@ export async function POST(req) {
     if (!date) {
       return NextResponse.json({ error: "Date is required" }, { status: 400 });
     }
+
+    if (!locationId) {
+      return NextResponse.json({ error: "Location is required" }, { status: 400 });
+    }
+
+    const { default: Location } = await import("@/lib/mongodb/models/Location");
+    const locationDoc = await Location.findById(locationId).lean();
+    const locationName = locationDoc?.name || "";
 
     const latestRecord = await Jpo.findOne({}).sort({
       uploadedAt: -1,
@@ -53,6 +62,7 @@ export async function POST(req) {
     fs.writeFileSync(filePath, buffer);
 
     const record = await Jpo.create({
+      location: { locationId, name: locationName },
       filePath: `uploads/operations/jpo/v${nextVersion}/${uniqueFileName}`,
       version: nextVersion,
       date: new Date(date),
