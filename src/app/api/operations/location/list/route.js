@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
-import LocationOfficeCheck from "@/lib/mongodb/models/operations/LocationOfficeCheck";
+import LocationOfficeCheck from "@/lib/mongodb/models/operations/operations-locations/LocationOfficeCheck";
 
 export async function GET(req) {
   await connectDB();
