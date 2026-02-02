@@ -41,7 +41,6 @@ const sidebarTabs = [
       },
     ],
   },
-  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
   {
     key: "cargos",
     label: "Cargo types",
@@ -152,7 +151,7 @@ export default function JpoListPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-transparent text-white flex">
-        <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0 md:ml-72" : "ml-0"}`}>
+        <div className="flex-1 min-w-0 ml-0 md:ml-72">
           <div className="flex items-center justify-center h-screen">
             <p className="text-white/60">Loading...</p>
           </div>
@@ -293,7 +292,7 @@ export default function JpoListPage() {
       )}
 
       {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0 md:ml-72" : "ml-0"}`}>
+      <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
         <header className="flex items-center justify-between gap-4 flex-wrap">
           <div>

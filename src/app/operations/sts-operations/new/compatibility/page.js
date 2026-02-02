@@ -33,7 +33,9 @@ const sidebarTabs = [
       },
     ],
   },
-  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
+  { key: "cargos", label: "Cargo types", href: "/operations/sts-operations/new/cargos" },
+  { key: "locations", label: "Locations", href: "/operations/sts-operations/new/locations" },
+  { key: "mooring", label: "Mooring masters", href: "/operations/sts-operations/new/mooringmaster" },
 ];
 
 const panels = {
@@ -67,9 +69,19 @@ export default function CompatibilityPage() {
   const panel = panels[active];
 
   useEffect(() => {
-    if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
+    if (pathname === "/operations/sts-operations/new") {
+      setActiveTab("documentation");
+    } else if (pathname.startsWith("/operations/sts-operations/new/compatibility")) {
+      setActiveTab("compatibility");
+    } else if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
       setActiveTab("forms");
       setExpandedModules((prev) => new Set([...prev, "forms"]));
+    } else if (pathname.startsWith("/operations/sts-operations/new/locations")) {
+      setActiveTab("locations");
+    } else if (pathname.startsWith("/operations/sts-operations/new/cargos")) {
+      setActiveTab("cargos");
+    } else if (pathname.startsWith("/operations/sts-operations/new/mooringmaster")) {
+      setActiveTab("mooring");
     }
   }, [pathname]);
 
@@ -208,7 +220,7 @@ export default function CompatibilityPage() {
       )}
 
       {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0 md:ml-72" : "ml-0"}`}>
+      <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-5xl px-6 py-8">
           <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>

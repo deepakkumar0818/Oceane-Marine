@@ -41,7 +41,6 @@ const sidebarTabs = [
       },
     ],
   },
-  { key: "ports", label: "Ports and Terminals", href: "/operations/sts-operations/new/locations" },
   {
     key: "cargos",
     label: "Cargo types",
@@ -66,6 +65,7 @@ export default function CargoMasterPage() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [expandedModules, setExpandedModules] = useState(new Set());
   const sidebarRef = useRef(null);
   const pathname = usePathname();
 
@@ -126,7 +126,12 @@ export default function CargoMasterPage() {
   };
 
   const activeTab =
-    sidebarTabs.find((tab) => pathname === tab.href)?.key || "cargos";
+    sidebarTabs.find(
+      (tab) =>
+        pathname === tab.href ||
+        (pathname.startsWith(tab.href) &&
+          (pathname.length === tab.href.length || pathname[tab.href.length] === "/"))
+    )?.key || "cargos";
 
   return (
     <div className="min-h-screen bg-transparent text-white flex">
@@ -222,7 +227,7 @@ export default function CargoMasterPage() {
                   ) : (
                     <Link
                       href={tab.href}
-                      className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                      className={`group flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
                         activeTab === tab.key
                           ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/40 scale-[1.02]"
                           : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5 hover:border-white/10 hover:scale-[1.01]"
@@ -259,12 +264,8 @@ export default function CargoMasterPage() {
         </button>
       )}
 
-      {/* Main Content */}
-      <div
-        className={`flex-1 transition-all duration-300 ${
-          isSidebarOpen ? "ml-72 pr-4" : "ml-0"
-        }`}
-      >
+      {/* Main Content - fixed left margin so content stays in place when sidebar collapses */}
+      <div className="flex-1 min-w-0 ml-72 pr-4">
         <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6">
           <header className="flex items-center justify-between gap-4">
             <div>
