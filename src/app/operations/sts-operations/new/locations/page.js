@@ -60,6 +60,8 @@ export default function LocationsPage() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState("locations");
+  const [expandedModules, setExpandedModules] = useState(new Set());
   const sidebarRef = useRef(null);
 
   // --- Office checks section ---
@@ -90,6 +92,25 @@ export default function LocationsPage() {
   const additionalInputRefs = useRef([]);
 
 
+  // Set active tab based on pathname
+  useEffect(() => {
+    if (pathname === "/operations/sts-operations/new") {
+      setActiveTab("documentation");
+    } else if (pathname.startsWith("/operations/sts-operations/new/compatibility")) {
+      setActiveTab("compatibility");
+    } else if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
+      setActiveTab("forms");
+      // Auto-expand forms module
+      setExpandedModules((prev) => new Set([...prev, "forms"]));
+    } else if (pathname.startsWith("/operations/sts-operations/new/locations")) {
+      setActiveTab("locations");
+    } else if (pathname.startsWith("/operations/sts-operations/new/cargos")) {
+      setActiveTab("cargos");
+    } else if (pathname.startsWith("/operations/sts-operations/new/mooringmaster")) {
+      setActiveTab("mooring");
+    }
+  }, [pathname]);
+
   // Load locations (master list for both sections)
   useEffect(() => {
     load();
@@ -100,6 +121,13 @@ export default function LocationsPage() {
       setLoading(true);
       setError("");
       const res = await fetch("/api/master/locations/list");
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Response is not JSON");
+      }
       const data = await res.json();
       const list = data?.locations || [];
       setItems(list);
@@ -128,15 +156,22 @@ export default function LocationsPage() {
     const loadYears = async () => {
       try {
         const res = await fetch("/api/operations/location/list");
+        if (!res.ok) {
+          return;
+        }
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          return;
+        }
         const data = await res.json();
-        if (res.ok && data.success && Array.isArray(data.years)) {
+        if (data.success && Array.isArray(data.years)) {
           const merged = [...new Set([year, ...data.years])].sort((a, b) => b - a);
           setYears(merged);
         }
       } catch (_) {}
     };
     loadYears();
-  }, []);
+  }, [year]);
 
   // Load office checks list when on list view
   useEffect(() => {
@@ -147,8 +182,15 @@ export default function LocationsPage() {
       try {
         const url = `/api/operations/location/list?location=${encodeURIComponent(selectedLocationId)}&year=${year}`;
         const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load list");
+        if (!data.success) throw new Error(data.error || "Failed to load list");
         setRecords(data.data || []);
       } catch (err) {
         setError(err.message);
@@ -171,8 +213,15 @@ export default function LocationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: value.trim() }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Response is not JSON");
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create");
+      if (data.error) throw new Error(data.error || "Failed to create");
       setValue("");
       await load();
     } catch (err) {
@@ -187,8 +236,15 @@ export default function LocationsPage() {
     try {
       setActionLoading(true);
       const res = await fetch(`/api/master/locations/${id}/delete`, { method: "DELETE" });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Response is not JSON");
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete");
+      if (data.error) throw new Error(data.error || "Failed to delete");
       await load();
     } catch (err) {
       setError(err.message);
@@ -251,8 +307,15 @@ export default function LocationsPage() {
         if (file) formData.append(`additional_${i}`, file);
       });
       const res = await fetch("/api/operations/location/create", { method: "POST", body: formData });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Response is not JSON");
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Save failed");
+      if (!data.success) throw new Error(data.error || "Save failed");
       setSuccess("Office checks saved successfully.");
       setOfficeChecks({
         jpo: false,
@@ -271,8 +334,13 @@ export default function LocationsPage() {
       if (officeView === "list") {
         const url = `/api/operations/location/list?location=${encodeURIComponent(selectedLocationId)}&year=${year}`;
         const listRes = await fetch(url);
-        const listData = await listRes.json();
-        setRecords(listData.data || []);
+        if (listRes.ok) {
+          const contentType = listRes.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const listData = await listRes.json();
+            setRecords(listData.data || []);
+          }
+        }
       }
     } catch (err) {
       setError(err.message);
