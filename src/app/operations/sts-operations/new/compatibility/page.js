@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { computeAll } from "./calculations";
 
 const sidebarTabs = [
   { key: "documentation", label: "Documentation", href: "/operations/sts-operations/new" },
@@ -11,31 +12,11 @@ const sidebarTabs = [
     key: "forms",
     label: "Forms and checklist",
     submodules: [
-      {
-        key: "sts-checklist",
-        label: "STS Checklist",
-        href: "/operations/sts-operations/new/form-checklist/sts-checklist/form",
-      },
-      {
-        key: "jpo",
-        label: "JPO",
-        href: "/operations/sts-operations/new/form-checklist/jpo/form",
-      },
-      {
-        key: "quotation",
-        label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/form",
-      },
-      {
-        key: "inspection-checklist",
-        label: "Inspection Checklist",
-        href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
-      },
-      {
-        key: "manual",
-        label: "Manual",
-        href: "/operations/sts-operations/new/form-checklist/manual/form",
-      },
+      { key: "sts-checklist", label: "STS Checklist", href: "/operations/sts-operations/new/form-checklist/sts-checklist/form" },
+      { key: "jpo", label: "JPO", href: "/operations/sts-operations/new/form-checklist/jpo/form" },
+      { key: "quotation", label: "Quotation", href: "/operations/sts-operations/new/form-checklist/quotations/form" },
+      { key: "inspection-checklist", label: "Inspection Checklist", href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form" },
+      { key: "manual", label: "Manual", href: "/operations/sts-operations/new/form-checklist/manual/form" },
     ],
   },
   { key: "cargos", label: "Cargo types", href: "/operations/sts-operations/new/cargos" },
@@ -43,59 +24,208 @@ const sidebarTabs = [
   { key: "mooring", label: "Mooring masters", href: "/operations/sts-operations/new/mooringmaster" },
 ];
 
-const panels = {
-  hose: {
-    title: "Hose Calculation",
-    items: [
-      "Hose type selection",
-      "Diameter and pressure placeholders",
-      "Environmental factors",
-      "Connection checklist",
-    ],
-  },
-  fender: {
-    title: "Fender Calculation",
-    items: [
-      "Vessel particulars placeholder",
-      "Energy absorption inputs",
-      "Standoff distances",
-      "Fender arrangement checklist",
-    ],
-  },
-};
+const emptyShip = () => ({
+  name: "",
+  DWT: "",
+  Beam: "",
+  DISP: "",
+  Draft: "",
+  MaxFreeboard: "",
+  MinFreeboard: "",
+  ManifoldToRail: "",
+});
 
 export default function CompatibilityPage() {
-  const [active, setActive] = useState("hose");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get("edit");
+  const sectionParam = searchParams?.get("section"); // "hose" | "fender"
+  const [calcSection, setCalcSection] = useState(sectionParam === "fender" ? "fender" : "hose");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("compatibility");
-  const [expandedModules, setExpandedModules] = useState(new Set());
+  const [expandedModules, setExpandedModules] = useState(new Set(["forms"]));
   const sidebarRef = useRef(null);
-  const pathname = usePathname();
-  const panel = panels[active];
+
+  const [operationNumber, setOperationNumber] = useState("");
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [locationId, setLocationId] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [locations, setLocations] = useState([]);
+  const [STBL, setSTBL] = useState(emptyShip());
+  const [SS, setSS] = useState(emptyShip());
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const messageTopRef = useRef(null);
 
   useEffect(() => {
-    if (pathname === "/operations/sts-operations/new") {
-      setActiveTab("documentation");
-    } else if (pathname.startsWith("/operations/sts-operations/new/compatibility")) {
-      setActiveTab("compatibility");
-    } else if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
+    fetch("/api/master/locations/list")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.locations) setLocations(data.locations);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (editId) {
+      setLoading(true);
+      fetch(`/api/operations/compatibility/${editId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.data) {
+            const d = data.data;
+            setOperationNumber(d.operationNumber || "");
+            setYear(d.year ?? new Date().getFullYear());
+            setLocationId(d.location?.locationId?.toString() || "");
+            setLocationName(d.location?.name || "");
+            setSTBL({
+              name: d.STBL?.name ?? "",
+              DWT: d.STBL?.DWT ?? "",
+              Beam: d.STBL?.Beam ?? "",
+              DISP: d.STBL?.DISP ?? "",
+              Draft: d.STBL?.Draft ?? "",
+              MaxFreeboard: d.STBL?.MaxFreeboard ?? "",
+              MinFreeboard: d.STBL?.MinFreeboard ?? "",
+              ManifoldToRail: d.STBL?.ManifoldToRail ?? "",
+            });
+            setSS({
+              name: d.SS?.name ?? "",
+              DWT: d.SS?.DWT ?? "",
+              Beam: d.SS?.Beam ?? "",
+              DISP: d.SS?.DISP ?? "",
+              Draft: d.SS?.Draft ?? "",
+              MaxFreeboard: d.SS?.MaxFreeboard ?? "",
+              MinFreeboard: d.SS?.MinFreeboard ?? "",
+              ManifoldToRail: d.SS?.ManifoldToRail ?? "",
+            });
+            if (d.results) setResults(d.results);
+          } else setError("Failed to load operation");
+        })
+        .catch(() => setError("Failed to load operation"))
+        .finally(() => setLoading(false));
+    } else {
+      setResults(null);
+    }
+  }, [editId]);
+
+  useEffect(() => {
+    setCalcSection(sectionParam === "fender" ? "fender" : "hose");
+  }, [sectionParam]);
+
+  useEffect(() => {
+    if (pathname === "/operations/sts-operations/new") setActiveTab("documentation");
+    else if (pathname.startsWith("/operations/sts-operations/new/compatibility")) setActiveTab("compatibility");
+    else if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
       setActiveTab("forms");
       setExpandedModules((prev) => new Set([...prev, "forms"]));
-    } else if (pathname.startsWith("/operations/sts-operations/new/locations")) {
-      setActiveTab("locations");
-    } else if (pathname.startsWith("/operations/sts-operations/new/cargos")) {
-      setActiveTab("cargos");
-    } else if (pathname.startsWith("/operations/sts-operations/new/mooringmaster")) {
-      setActiveTab("mooring");
-    }
+    } else if (pathname.startsWith("/operations/sts-operations/new/locations")) setActiveTab("locations");
+    else if (pathname.startsWith("/operations/sts-operations/new/cargos")) setActiveTab("cargos");
+    else if (pathname.startsWith("/operations/sts-operations/new/mooringmaster")) setActiveTab("mooring");
   }, [pathname]);
 
-  // Removed click-outside-to-close behavior - sidebar only closes on "x" button click
+  const handleShipChange = (ship, setShip, field, value) => {
+    setShip((prev) => ({ ...prev, [field]: value }));
+  };
 
+  const handleCalculate = () => {
+    setError("");
+    setSuccess("");
+    const stblNum = {
+      ...STBL,
+      DWT: Number(STBL.DWT) || 0,
+      Beam: Number(STBL.Beam) || 0,
+      DISP: Number(STBL.DISP) || 0,
+      Draft: Number(STBL.Draft) || 0,
+      MaxFreeboard: Number(STBL.MaxFreeboard) || 0,
+      MinFreeboard: Number(STBL.MinFreeboard) || 0,
+      ManifoldToRail: Number(STBL.ManifoldToRail) || 0,
+    };
+    const ssNum = {
+      ...SS,
+      DWT: Number(SS.DWT) || 0,
+      Beam: Number(SS.Beam) || 0,
+      DISP: Number(SS.DISP) || 0,
+      Draft: Number(SS.Draft) || 0,
+      MaxFreeboard: Number(SS.MaxFreeboard) || 0,
+      MinFreeboard: Number(SS.MinFreeboard) || 0,
+      ManifoldToRail: Number(SS.ManifoldToRail) || 0,
+    };
+    const computed = computeAll(stblNum, ssNum);
+    setResults(computed);
+  };
+
+  const handleSave = async () => {
+    setError("");
+    setSuccess("");
+    if (!operationNumber?.trim()) {
+      setError("Operation number is required");
+      return;
+    }
+    if (!year) {
+      setError("Year is required");
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      operationNumber: operationNumber.trim(),
+      year: Number(year),
+      locationId: locationId || null,
+      locationName: locationName || (locations.find((l) => l._id === locationId)?.name ?? ""),
+      section: calcSection,
+      STBL: {
+        name: STBL.name,
+        DWT: Number(STBL.DWT) || 0,
+        Beam: Number(STBL.Beam) || 0,
+        DISP: Number(STBL.DISP) || 0,
+        Draft: Number(STBL.Draft) || 0,
+        MaxFreeboard: Number(STBL.MaxFreeboard) || 0,
+        MinFreeboard: Number(STBL.MinFreeboard) || 0,
+        ManifoldToRail: Number(STBL.ManifoldToRail) || 0,
+      },
+      SS: {
+        name: SS.name,
+        DWT: Number(SS.DWT) || 0,
+        Beam: Number(SS.Beam) || 0,
+        DISP: Number(SS.DISP) || 0,
+        Draft: Number(SS.Draft) || 0,
+        MaxFreeboard: Number(SS.MaxFreeboard) || 0,
+        MinFreeboard: Number(SS.MinFreeboard) || 0,
+        ManifoldToRail: Number(SS.ManifoldToRail) || 0,
+      },
+    };
+    try {
+      const url = editId
+        ? `/api/operations/compatibility/${editId}`
+        : "/api/operations/compatibility/create";
+      const method = editId ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Save failed");
+      setError("");
+      setSuccess(editId ? "Operation updated." : "Operation saved.");
+      setResults(data.data?.results || results);
+      messageTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (!editId) setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err.message);
+      setSuccess("");
+      messageTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass = "w-full min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-colors tabular-nums box-border";
+  const inputNumberClass = inputClass + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+  const labelClass = "block text-sm font-medium text-white/90 mb-1.5 shrink-0";
+  const fieldWrapClass = "flex flex-col min-h-[72px] shrink-0";
 
   return (
     <div className="min-h-screen bg-transparent text-white flex">
-      {/* Left Sidebar */}
+      {/* Sidebar */}
       <div
         ref={sidebarRef}
         className={`fixed left-0 top-0 h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-r border-white/20 shadow-2xl backdrop-blur-md z-50 transition-transform duration-300 ${
@@ -104,7 +234,6 @@ export default function CompatibilityPage() {
         style={{ width: "300px" }}
       >
         <div className="flex flex-col h-full">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-white/10 bg-gradient-to-r from-orange-500/10 to-transparent">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/30">
@@ -112,17 +241,11 @@ export default function CompatibilityPage() {
               </div>
               <h2 className="text-lg font-bold text-white">Operations Modules</h2>
             </div>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition hover:scale-110"
-              aria-label="Close sidebar"
-            >
+            <button onClick={() => setIsSidebarOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition" aria-label="Close sidebar">
               <span className="text-white text-lg">×</span>
             </button>
           </div>
-
-          {/* Navigation Items */}
-          <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [scrollbar-color:transparent_transparent] hover:[scrollbar-color:rgba(255,255,255,0.2)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent transition-all duration-200">
+          <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-1.5">
               {sidebarTabs.map((tab) => (
                 <div key={tab.key} className="space-y-1">
@@ -131,154 +254,374 @@ export default function CompatibilityPage() {
                       <button
                         onClick={() => {
                           setExpandedModules((prev) => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(tab.key)) {
-                              newSet.delete(tab.key);
-                            } else {
-                              newSet.add(tab.key);
-                            }
-                            return newSet;
+                            const next = new Set(prev);
+                            if (next.has(tab.key)) next.delete(tab.key);
+                            else next.add(tab.key);
+                            return next;
                           });
                         }}
-                        className={`group flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
-                          activeTab === tab.key
-                            ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/40 scale-[1.02]"
-                            : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5 hover:border-white/10 hover:scale-[1.01]"
+                        className={`group flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-all ${
+                          activeTab === tab.key ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white" : "text-white/90 hover:bg-white/10"
                         }`}
                       >
                         <span className="flex-1">{tab.label}</span>
-                        <span
-                          className={`text-sm transition-transform ${
-                            expandedModules.has(tab.key) ? "rotate-90" : ""
-                          }`}
-                        >
-                          ▶
-                        </span>
-                        {activeTab === tab.key && (
-                          <div className="h-2 w-2 rounded-full bg-white animate-pulse"></div>
-                        )}
+                        <span className={`text-sm ${expandedModules.has(tab.key) ? "rotate-90" : ""}`}>▶</span>
                       </button>
                       {expandedModules.has(tab.key) && (
                         <div className="ml-4 space-y-1 mt-1.5 pl-4 border-l-2 border-orange-500/30">
-                          {tab.submodules.map((submodule) => {
-                            const isActiveSub =
-                              pathname.startsWith(submodule.href.split("/form")[0]) ||
-                              pathname.startsWith(submodule.href.split("/list")[0]);
-                            return (
-                              <Link
-                                key={submodule.key}
-                                href={submodule.href}
-                                className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border ${
-                                  isActiveSub
-                                    ? "bg-white/20 text-white border-orange-400/50 shadow-md"
-                                    : "text-white/80 hover:bg-white/10 hover:text-white border-white/5 hover:border-white/10"
-                                }`}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className="text-xs">▸</span>
-                                  {submodule.label}
-                                </span>
-                              </Link>
-                            );
-                          })}
+                          {tab.submodules.map((sub) => (
+                            <Link key={sub.key} href={sub.href} className="block w-full text-left px-4 py-2.5 rounded-lg text-sm text-white/80 hover:bg-white/10">
+                              {sub.label}
+                            </Link>
+                          ))}
                         </div>
                       )}
                     </>
                   ) : (
                     <Link
                       href={tab.href}
-                      className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
-                        activeTab === tab.key
-                          ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/40 scale-[1.02]"
-                          : "text-white/90 hover:bg-white/10 hover:text-white border border-white/5 hover:border-white/10 hover:scale-[1.01]"
+                      className={`block px-4 py-3 rounded-xl text-base font-medium ${
+                        activeTab === tab.key ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white" : "text-white/90 hover:bg-white/10"
                       }`}
                     >
-                      <span className="flex-1">{tab.label}</span>
-                      {activeTab === tab.key && (
-                        <div className="h-2 w-2 rounded-full bg-white animate-pulse"></div>
-                      )}
+                      {tab.label}
                     </Link>
                   )}
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Footer */}
           <div className="p-4 border-t border-white/10 bg-slate-800/50">
-            <p className="text-[10px] text-slate-400 text-center">
-              Operations Management System
-            </p>
+            <p className="text-[10px] text-slate-400 text-center">Operations Management System</p>
           </div>
         </div>
       </div>
 
-      {/* Sidebar Toggle Button */}
       {!isSidebarOpen && (
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition border border-orange-400/30 shadow-lg shadow-orange-500/30 hover:scale-110"
-          aria-label="Open sidebar"
-        >
+        <button onClick={() => setIsSidebarOpen(true)} className="fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600" aria-label="Open sidebar">
           <span className="text-white text-xl">☰</span>
         </button>
       )}
 
-      {/* Main Content - same layout as other Operations forms */}
-      <div className="flex-1 min-w-0 ml-0 md:ml-72 pr-4">
-        <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6">
-          <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="flex-1 min-w-0 ml-0 md:ml-72 pr-4 overflow-auto">
+        <div className="w-full max-w-[95%] mx-auto pl-4 pr-4 py-10 space-y-6" id="compatibility-top">
+          {/* Message at top – user is scrolled here on save */}
+          <div ref={messageTopRef} className="min-h-[52px]">
+            {error && (
+              <div className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-100 mb-4" role="alert">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 mb-4" role="alert">
+                {success}
+              </div>
+            )}
+          </div>
+          <header className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.25em] text-sky-300">
-                Compatibility
-              </p>
-              <h1 className="text-2xl font-bold">
-                Hose & Fender Calculation (UI only)
-              </h1>
+              <p className="text-sm uppercase tracking-[0.25em] text-sky-300">Compatibility</p>
+              <h1 className="text-2xl font-bold text-white">Hose & Fender Calculation</h1>
+            </div>
+            <div className="inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+              <Link
+                href={editId ? `/operations/sts-operations/new/compatibility?edit=${editId}&section=hose` : "/operations/sts-operations/new/compatibility?section=hose"}
+                className={`px-4 py-2 text-sm font-semibold transition ${calcSection === "hose" ? "bg-orange-500 text-white" : "text-white/90 hover:bg-white/10"}`}
+              >
+                Hose Calculation
+              </Link>
+              <Link
+                href={editId ? `/operations/sts-operations/new/compatibility?edit=${editId}&section=fender` : "/operations/sts-operations/new/compatibility?section=fender"}
+                className={`px-4 py-2 text-sm font-semibold transition ${calcSection === "fender" ? "bg-orange-500 text-white" : "text-white/90 hover:bg-white/10"}`}
+              >
+                Fender Calculation
+              </Link>
+              <Link
+                href="/operations/sts-operations/new/compatibility/list"
+                className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+              >
+                List
+              </Link>
             </div>
           </header>
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur shadow-2xl">
-          <div className="mb-6 inline-flex rounded-full border border-white/10 bg-white/5 p-1">
-            {[
-              { key: "hose", label: "Hose Calculation" },
-              { key: "fender", label: "Fender Calculation" },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActive(tab.key)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  active === tab.key
-                    ? "bg-orange-500 text-white shadow shadow-orange-500/30"
-                    : "text-white/80 hover:bg-white/10"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">{panel.title}</h2>
-            <p className="text-sm text-slate-200">
-              Placeholder UI for {panel.title.toLowerCase()}. Replace with real
-              calculators when data is ready.
-            </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {panel.items.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-sm text-white/80"
-                >
-                  {item}
+          {loading ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center text-white/60">Loading operation...</div>
+          ) : (
+            <div className="space-y-6">
+              {/* Operation info - shared */}
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur shadow-xl">
+                <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-4">Operation</h2>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className={fieldWrapClass}>
+                    <label className={labelClass}>Operation number *</label>
+                    <input
+                      type="text"
+                      value={operationNumber}
+                      onChange={(e) => setOperationNumber(e.target.value)}
+                      placeholder="e.g. 2025-065"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <label className={labelClass}>Year *</label>
+                    <input
+                      type="number"
+                      value={year || ""}
+                      onChange={(e) => setYear(Number(e.target.value) || "")}
+                      min={2000}
+                      max={2100}
+                      className={inputNumberClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <label className={labelClass}>Location</label>
+                    <select
+                      value={locationId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setLocationId(id);
+                        const loc = locations.find((l) => l._id === id);
+                        setLocationName(loc?.name ?? "");
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Select location</option>
+                      {locations.map((loc) => (
+                        <option key={loc._id} value={loc._id}>{loc.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Hose Calculation - separate section */}
+              {calcSection === "hose" && (
+                <>
+                  <p className="text-xs text-white/60">Freeboard and manifold to rail in meters (m).</p>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur shadow-xl">
+                    <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-4">STBL</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        { key: "name", label: "Name", unit: "" },
+                        { key: "MaxFreeboard", label: "Max Freeboard", unit: "m" },
+                        { key: "MinFreeboard", label: "Min Freeboard", unit: "m" },
+                        { key: "ManifoldToRail", label: "Distance Manifold to Ship Rail", unit: "m" },
+                      ].map(({ key, label, unit }) => (
+                        <div key={key} className={fieldWrapClass}>
+                          <label className={labelClass}>{label}{unit ? ` (${unit})` : ""}</label>
+                          <input
+                            type={key === "name" ? "text" : "number"}
+                            step={key !== "name" ? "any" : undefined}
+                            value={STBL[key] ?? ""}
+                            onChange={(e) => handleShipChange(STBL, setSTBL, key, e.target.value)}
+                            placeholder={key === "name" ? "Ship name" : "0"}
+                            className={key === "name" ? inputClass : inputNumberClass}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur shadow-xl">
+                    <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-4">SS</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        { key: "name", label: "Name", unit: "" },
+                        { key: "MaxFreeboard", label: "Max Freeboard", unit: "m" },
+                        { key: "MinFreeboard", label: "Min Freeboard", unit: "m" },
+                        { key: "ManifoldToRail", label: "Distance Manifold to Ship Rail", unit: "m" },
+                      ].map(({ key, label, unit }) => (
+                        <div key={key} className={fieldWrapClass}>
+                          <label className={labelClass}>{label}{unit ? ` (${unit})` : ""}</label>
+                          <input
+                            type={key === "name" ? "text" : "number"}
+                            step={key !== "name" ? "any" : undefined}
+                            value={SS[key] ?? ""}
+                            onChange={(e) => handleShipChange(SS, setSS, key, e.target.value)}
+                            placeholder={key === "name" ? "Ship name" : "0"}
+                            className={key === "name" ? inputClass : inputNumberClass}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    <button type="button" onClick={handleCalculate} className="rounded-xl bg-sky-500 hover:bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition">
+                      Calculate Hose
+                    </button>
+                  </div>
+                  {results?.hose && (
+                    <div className="rounded-2xl border border-white/10 overflow-hidden shadow-xl" style={{ backgroundColor: "#2C4257" }}>
+                      <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-0 px-6 pt-6">Hose calculation result</h2>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b border-white/10" style={{ backgroundColor: "#23374D" }}>
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-white/90 uppercase tracking-wider">Field</th>
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-white/90 uppercase tracking-wider">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/10">
+                            {[
+                              { label: "Max Freeboard (m)", value: results.hose.MaxFreeboard ?? "—", main: false },
+                              { label: "Min Freeboard (m)", value: results.hose.MinFreeboard ?? "—", main: false },
+                              { label: "Difference of Freeboard (m)", value: results.hose.FreeboardDiff ?? "—", main: false },
+                              { label: "Hose length required (m)", value: results.hose.HoseCal != null ? `${results.hose.HoseCal} m` : "—", main: true },
+                            ].map((row, i) => (
+                              <tr
+                                key={i}
+                                className="hover:opacity-90 transition-opacity"
+                                style={{
+                                  backgroundColor: row.main ? "#1e4d5c" : (i % 2 === 0 ? "#2C4257" : "#23374D"),
+                                  borderLeft: row.main ? "4px solid #0ea5e9" : undefined,
+                                }}
+                              >
+                                <td className="py-3 px-4 text-sm text-white/90">{row.label}</td>
+                                <td className={`py-3 px-4 font-medium text-white ${row.main ? "text-base font-semibold" : "text-sm"}`}>{row.value}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="px-6 pb-6 mt-4 flex justify-end">
+                        <Link
+                          href={editId ? `/operations/sts-operations/new/compatibility?edit=${editId}&section=hose` : "/operations/sts-operations/new/compatibility?section=hose"}
+                          className="text-sm font-medium text-orange-400 hover:text-orange-300 transition"
+                        >
+                          Edit inputs →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Fender Calculation - separate section */}
+              {calcSection === "fender" && (
+                <>
+                  <p className="text-xs text-white/60">DWT and DISP in MT; Beam and Draft in meters (m).</p>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur shadow-xl">
+                    <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-4">STBL</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        { key: "name", label: "Name", unit: "" },
+                        { key: "DWT", label: "DWT", unit: "MT" },
+                        { key: "Beam", label: "Beam", unit: "m" },
+                        { key: "DISP", label: "DISP (Displacement)", unit: "MT" },
+                        { key: "Draft", label: "Draft", unit: "m" },
+                      ].map(({ key, label, unit }) => (
+                        <div key={key} className={fieldWrapClass}>
+                          <label className={labelClass}>{label}{unit ? ` (${unit})` : ""}</label>
+                          <input
+                            type={key === "name" ? "text" : "number"}
+                            step={key !== "name" ? "any" : undefined}
+                            value={STBL[key] ?? ""}
+                            onChange={(e) => handleShipChange(STBL, setSTBL, key, e.target.value)}
+                            placeholder={key === "name" ? "Ship name" : "0"}
+                            className={key === "name" ? inputClass : inputNumberClass}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur shadow-xl">
+                    <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-4">SS</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        { key: "name", label: "Name", unit: "" },
+                        { key: "DWT", label: "DWT", unit: "MT" },
+                        { key: "Beam", label: "Beam", unit: "m" },
+                        { key: "DISP", label: "DISP (Displacement)", unit: "MT" },
+                        { key: "Draft", label: "Draft", unit: "m" },
+                      ].map(({ key, label, unit }) => (
+                        <div key={key} className={fieldWrapClass}>
+                          <label className={labelClass}>{label}{unit ? ` (${unit})` : ""}</label>
+                          <input
+                            type={key === "name" ? "text" : "number"}
+                            step={key !== "name" ? "any" : undefined}
+                            value={SS[key] ?? ""}
+                            onChange={(e) => handleShipChange(SS, setSS, key, e.target.value)}
+                            placeholder={key === "name" ? "Ship name" : "0"}
+                            className={key === "name" ? inputClass : inputNumberClass}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    <button type="button" onClick={handleCalculate} className="rounded-xl bg-sky-500 hover:bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition">
+                      Calculate Fender
+                    </button>
+                  </div>
+                  {results?.fender && (
+                    <div className="rounded-2xl border border-white/10 overflow-hidden shadow-xl" style={{ backgroundColor: "#2C4257" }}>
+                      <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-3 mb-0 px-6 pt-6">Fender calculation result</h2>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b border-white/10" style={{ backgroundColor: "#23374D" }}>
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-white/90 uppercase tracking-wider">Field</th>
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-white/90 uppercase tracking-wider">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/10">
+                            {[
+                              { label: "Equivalent Displacement Coefficient (EDC) (MT)", value: results.fender.EDC ?? "—", highlight: false },
+                              { label: "STBL Mass Coefficient", value: results.fender.STBLMassCoeff ?? "—", highlight: false },
+                              { label: "SS Mass Coefficient", value: results.fender.SSMassCoeff ?? "—", highlight: false },
+                              { label: "Combined Virtual Displacement (CVD) (MT)", value: results.fender.CVD ?? "—", highlight: false },
+                              { label: "Virtual Displacement STBL (MT)", value: results.fender.VirtDispSTBL ?? "—", highlight: false },
+                              { label: "Virtual Displacement SS (MT)", value: results.fender.VirtDispSS ?? "—", highlight: false },
+                              { label: "Energy Coefficient Calm", value: results.fender.EnergyCoeff_Calm ?? "—", highlight: false },
+                              { label: "Energy Coefficient Moderate", value: results.fender.EnergyCoeff_Moderate ?? "—", highlight: false },
+                              { label: "Energy Coefficient Rough", value: results.fender.EnergyCoeff_Rough ?? "—", highlight: false },
+                              { label: "Fender selection – Calm", value: results.fender.Fenderselect_Calm ?? "—", highlight: true, color: "calm" },
+                              { label: "Fender selection – Moderate", value: results.fender.Fenderselect_Moderate ?? "—", highlight: true, color: "moderate" },
+                              { label: "Fender selection – Rough", value: results.fender.Fenderselect_Rough ?? "—", highlight: true, color: "rough" },
+                            ].map((row, i) => {
+                              const highlightStyle = row.highlight && row.color
+                                ? {
+                                    backgroundColor: row.color === "calm" ? "rgba(34, 197, 94, 0.45)" : row.color === "moderate" ? "rgba(234, 179, 8, 0.5)" : "rgba(236, 72, 153, 0.45)",
+                                    borderLeft: `4px solid ${row.color === "calm" ? "#22c55e" : row.color === "moderate" ? "#eab308" : "#ec4899"}`,
+                                  }
+                                : { backgroundColor: i % 2 === 0 ? "#2C4257" : "#23374D" };
+                              return (
+                                <tr key={i} className="hover:opacity-90 transition-opacity" style={highlightStyle}>
+                                  <td className="py-3 px-4 text-sm text-white/90">{row.label}</td>
+                                  <td className={`py-3 px-4 font-medium text-white ${row.highlight ? "text-base font-semibold" : "text-sm"}`}>{row.value}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="px-6 pb-6 mt-4 flex justify-end">
+                        <Link
+                          href={editId ? `/operations/sts-operations/new/compatibility?edit=${editId}&section=fender` : "/operations/sts-operations/new/compatibility?section=fender"}
+                          className="text-sm font-medium text-orange-400 hover:text-orange-300 transition"
+                        >
+                          Edit inputs →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="flex flex-wrap gap-4">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6 py-3 text-sm font-semibold text-white transition"
+                >
+                  {saving ? "Saving..." : editId ? "Update" : "Save"}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
