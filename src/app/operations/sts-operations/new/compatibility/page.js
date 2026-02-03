@@ -133,25 +133,26 @@ export default function CompatibilityPage() {
   const handleCalculate = () => {
     setError("");
     setSuccess("");
+    const parseNum = (v) => (typeof v === "number" && Number.isFinite(v)) ? v : Number(String(v).replace(/,/g, "")) || 0;
     const stblNum = {
       ...STBL,
-      DWT: Number(STBL.DWT) || 0,
-      Beam: Number(STBL.Beam) || 0,
-      DISP: Number(STBL.DISP) || 0,
-      Draft: Number(STBL.Draft) || 0,
-      MaxFreeboard: Number(STBL.MaxFreeboard) || 0,
-      MinFreeboard: Number(STBL.MinFreeboard) || 0,
-      ManifoldToRail: Number(STBL.ManifoldToRail) || 0,
+      DWT: parseNum(STBL.DWT),
+      Beam: parseNum(STBL.Beam),
+      DISP: parseNum(STBL.DISP),
+      Draft: parseNum(STBL.Draft),
+      MaxFreeboard: parseNum(STBL.MaxFreeboard),
+      MinFreeboard: parseNum(STBL.MinFreeboard),
+      ManifoldToRail: parseNum(STBL.ManifoldToRail),
     };
     const ssNum = {
       ...SS,
-      DWT: Number(SS.DWT) || 0,
-      Beam: Number(SS.Beam) || 0,
-      DISP: Number(SS.DISP) || 0,
-      Draft: Number(SS.Draft) || 0,
-      MaxFreeboard: Number(SS.MaxFreeboard) || 0,
-      MinFreeboard: Number(SS.MinFreeboard) || 0,
-      ManifoldToRail: Number(SS.ManifoldToRail) || 0,
+      DWT: parseNum(SS.DWT),
+      Beam: parseNum(SS.Beam),
+      DISP: parseNum(SS.DISP),
+      Draft: parseNum(SS.Draft),
+      MaxFreeboard: parseNum(SS.MaxFreeboard),
+      MinFreeboard: parseNum(SS.MinFreeboard),
+      ManifoldToRail: parseNum(SS.ManifoldToRail),
     };
     const computed = computeAll(stblNum, ssNum);
     setResults(computed);
@@ -466,6 +467,9 @@ export default function CompatibilityPage() {
                               { label: "Max Freeboard (m)", value: results.hose.MaxFreeboard ?? "—", main: false },
                               { label: "Min Freeboard (m)", value: results.hose.MinFreeboard ?? "—", main: false },
                               { label: "Difference of Freeboard (m)", value: results.hose.FreeboardDiff ?? "—", main: false },
+                              { label: "Point A (m)", value: results.hose.PointA != null ? `${results.hose.PointA} m` : "—", main: false },
+                              { label: "Point B (m)", value: results.hose.PointB != null ? `${results.hose.PointB} m` : "—", main: false },
+                              { label: "Point C (m)", value: results.hose.PointC != null ? `${results.hose.PointC} m` : "—", main: false },
                               { label: "Hose length required (m)", value: results.hose.HoseCal != null ? `${results.hose.HoseCal} m` : "—", main: true },
                             ].map((row, i) => (
                               <tr
@@ -477,7 +481,7 @@ export default function CompatibilityPage() {
                                 }}
                               >
                                 <td className="py-3 px-4 text-sm text-white/90">{row.label}</td>
-                                <td className={`py-3 px-4 font-medium text-white ${row.main ? "text-base font-semibold" : "text-sm"}`}>{row.value}</td>
+                                <td className={`py-3 px-4 text-white ${row.main ? "text-base font-bold" : "text-sm font-semibold"}`}>{row.value}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -588,7 +592,7 @@ export default function CompatibilityPage() {
                               return (
                                 <tr key={i} className="hover:opacity-90 transition-opacity" style={highlightStyle}>
                                   <td className="py-3 px-4 text-sm text-white/90">{row.label}</td>
-                                  <td className={`py-3 px-4 font-medium text-white ${row.highlight ? "text-base font-semibold" : "text-sm"}`}>{row.value}</td>
+                                  <td className={`py-3 px-4 text-white ${row.highlight ? "text-base font-bold" : "text-sm font-semibold"}`}>{row.value}</td>
                                 </tr>
                               );
                             })}
