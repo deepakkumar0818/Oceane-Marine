@@ -10,6 +10,9 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Round to 2 decimal places for all result display */
+const round2 = (x) => Math.round(Number(x) * 100) / 100;
+
 /** Hose: MaxFreeboard, MinFreeboard, FreeboardDiff, HoseCal */
 export function computeHose(STBL, SS) {
   const stbl = STBL || {};
@@ -27,10 +30,13 @@ export function computeHose(STBL, SS) {
   const HoseCal = FreeboardDiff + SS_Manifold_To_Rail + STBL_Manifold_To_Rail + POINT_C;
 
   return {
-    MaxFreeboard,
-    MinFreeboard,
-    FreeboardDiff,
-    HoseCal: Math.round(HoseCal * 100) / 100,
+    MaxFreeboard: round2(MaxFreeboard),
+    MinFreeboard: round2(MinFreeboard),
+    FreeboardDiff: round2(FreeboardDiff),
+    PointA: round2(SS_Manifold_To_Rail),
+    PointB: round2(STBL_Manifold_To_Rail),
+    PointC: POINT_C,
+    HoseCal: round2(HoseCal),
   };
 }
 
@@ -99,10 +105,11 @@ export function computeFender(STBL, SS) {
   const ss = SS || {};
   const STBL_DISP = num(stbl.DISP);
   const SS_Disp = num(ss.DISP);
-  const STBL_Beam = num(stbl.Beam);
-  const SS_Beam = num(ss.Beam);
-  const STBL_Draft = num(stbl.Draft);
-  const SS_Draft = num(ss.Draft);
+  // Support both Beam/beam and Draft/draft for API/form compatibility
+  const STBL_Beam = num(stbl.Beam ?? stbl.beam);
+  const SS_Beam = num(ss.Beam ?? ss.beam);
+  const STBL_Draft = num(stbl.Draft ?? stbl.draft);
+  const SS_Draft = num(ss.Draft ?? ss.draft);
 
   if (STBL_DISP + SS_Disp <= 0) {
     return {
@@ -128,8 +135,9 @@ export function computeFender(STBL, SS) {
   }
 
   const EDC = (2 * STBL_DISP * SS_Disp) / (STBL_DISP + SS_Disp);
-  const STBLMassCoeff = STBL_Beam !== 0 ? (2 * STBL_Draft) / STBL_Beam + 1 : 0;
-  const SSMassCoeff = SS_Beam !== 0 ? (2 * SS_Draft) / SS_Beam + 1 : 0;
+  // Mass coefficient Cm = 1 + 2*(Draft/Beam) per standard; avoid division by zero
+  const STBLMassCoeff = STBL_Beam > 0 ? 1 + (2 * STBL_Draft) / STBL_Beam : 0;
+  const SSMassCoeff = SS_Beam > 0 ? 1 + (2 * SS_Draft) / SS_Beam : 0;
   const VirtDispSTBL = STBLMassCoeff * STBL_DISP;
   const VirtDispSS = SSMassCoeff * SS_Disp;
   const CVD =
@@ -148,22 +156,19 @@ export function computeFender(STBL, SS) {
   const EnergyCoeff_Moderate = 0.5 * CVD * Vsqr_Moderate * 0.5 * 2;
   const EnergyCoeff_Rough = 0.5 * CVD * Vsqr_Rough * 0.5 * 2;
 
-  const round2 = (x) => Math.round(x * 100) / 100;
-  const round4 = (x) => Math.round(x * 10000) / 10000;
-
   return {
     EDC: round2(EDC),
-    STBLMassCoeff: round4(STBLMassCoeff),
-    SSMassCoeff: round4(SSMassCoeff),
+    STBLMassCoeff: round2(STBLMassCoeff),
+    SSMassCoeff: round2(SSMassCoeff),
     VirtDispSTBL: round2(VirtDispSTBL),
     VirtDispSS: round2(VirtDispSS),
     CVD: round2(CVD),
-    V_Calm,
-    V_Moderate,
-    V_Rough,
-    VSqr_Calm: round4(VSqr_Calm),
-    Vsqr_Moderate: round4(Vsqr_Moderate),
-    Vsqr_Rough: round4(Vsqr_Rough),
+    V_Calm: round2(V_Calm),
+    V_Moderate: round2(V_Moderate),
+    V_Rough: round2(V_Rough),
+    VSqr_Calm: round2(VSqr_Calm),
+    Vsqr_Moderate: round2(Vsqr_Moderate),
+    Vsqr_Rough: round2(Vsqr_Rough),
     EnergyCoeff_Calm: round2(EnergyCoeff_Calm),
     EnergyCoeff_Moderate: round2(EnergyCoeff_Moderate),
     EnergyCoeff_Rough: round2(EnergyCoeff_Rough),

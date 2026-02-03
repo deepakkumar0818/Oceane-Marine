@@ -239,6 +239,9 @@ export default function CompatibilityViewPage() {
                           { label: "Max Freeboard (m)", value: data.results.hose.MaxFreeboard ?? "—", main: false },
                           { label: "Min Freeboard (m)", value: data.results.hose.MinFreeboard ?? "—", main: false },
                           { label: "Difference of Freeboard (m)", value: data.results.hose.FreeboardDiff ?? "—", main: false },
+                          { label: "Point A (m)", value: data.results.hose.PointA != null ? `${data.results.hose.PointA} m` : "—", main: false },
+                          { label: "Point B (m)", value: data.results.hose.PointB != null ? `${data.results.hose.PointB} m` : "—", main: false },
+                          { label: "Point C (m)", value: data.results.hose.PointC != null ? `${data.results.hose.PointC} m` : "—", main: false },
                           { label: "Hose length required (m)", value: data.results.hose.HoseCal != null ? `${data.results.hose.HoseCal} m` : "—", main: true },
                         ].map((row, i) => (
                           <tr
@@ -250,7 +253,7 @@ export default function CompatibilityViewPage() {
                             }}
                           >
                             <td className="py-3 px-4 text-sm text-white/90">{row.label}</td>
-                            <td className={`py-3 px-4 font-medium text-white ${row.main ? "text-base font-semibold" : "text-sm"}`}>{row.value}</td>
+                            <td className={`py-3 px-4 text-white ${row.main ? "text-base font-bold" : "text-sm font-semibold"}`}>{row.value}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -294,7 +297,7 @@ export default function CompatibilityViewPage() {
                           return (
                             <tr key={i} className="hover:opacity-90 transition-opacity" style={highlightStyle}>
                               <td className="py-3 px-4 text-sm text-white/90">{row.label}</td>
-                              <td className={`py-3 px-4 font-medium text-white ${row.highlight ? "text-base font-semibold" : "text-sm"}`}>{row.value}</td>
+                              <td className={`py-3 px-4 text-white ${row.highlight ? "text-base font-bold" : "text-sm font-semibold"}`}>{row.value}</td>
                             </tr>
                           );
                         })}
