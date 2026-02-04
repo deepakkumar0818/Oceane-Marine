@@ -1,14 +1,10 @@
-import GoToDashBoardButton from "../components/GoToDashBoardButton";
+import OperationsLayoutClient from "./OperationsLayoutClient";
+
 export const metadata = {
   title: "Operations | STS Management",
 };
 
 export default function OperationsLayout({ children }) {
-  return (
-    <div className="relative min-h-screen bg-transparent text-white pt-6">
-      <GoToDashBoardButton offsetLeftPx={316} />
-      {children}
-    </div>
-  );
+  return <OperationsLayoutClient>{children}</OperationsLayoutClient>;
 }
 

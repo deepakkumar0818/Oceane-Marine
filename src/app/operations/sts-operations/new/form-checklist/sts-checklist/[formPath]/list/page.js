@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useParams } from "next/navigation";
+import { useOperationsLoading } from "@/app/operations/OperationsLoadingContext";
 
 const sidebarTabs = [
   {
@@ -32,7 +33,7 @@ const sidebarTabs = [
       {
         key: "quotation",
         label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/form",
+        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       },
       {
         key: "inspection-checklist",
@@ -120,6 +121,7 @@ export default function FormListPage() {
   const [error, setError] = useState(null);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [availableYears, setAvailableYears] = useState([currentYear]);
+  const { setPageLoading } = useOperationsLoading();
 
   useEffect(() => {
     fetchForms();
@@ -129,7 +131,8 @@ export default function FormListPage() {
     try {
       setLoading(true);
       setError(null);
-      
+      setPageLoading(true);
+
       const response = await fetch(
         `${API_BASE_URL}/${formPath}/list?year=${selectedYear}`,
         {
@@ -158,6 +161,7 @@ export default function FormListPage() {
       setForms([]);
     } finally {
       setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -195,21 +199,10 @@ export default function FormListPage() {
     };
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-transparent text-white flex">
-        <div className="flex-1 min-w-0 ml-0 md:ml-72">
-          <div className="flex items-center justify-center h-screen">
-            <p className="text-white/60">Loading...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-transparent text-white flex">
-      {/* Left Sidebar */}
+      {/* Left Sidebar - hidden during load so only loading message is visible */}
+      {!loading && (
       <div
         ref={sidebarRef}
         className={`fixed left-0 top-0 h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-r border-white/20 shadow-2xl backdrop-blur-md z-50 transition-transform duration-300 ${
@@ -329,9 +322,10 @@ export default function FormListPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Sidebar Toggle Button */}
-      {!isSidebarOpen && (
+      {/* Sidebar Toggle Button - only show when not loading */}
+      {!loading && !isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
           className="fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition border border-orange-400/30 shadow-lg shadow-orange-500/30 hover:scale-110"
@@ -341,46 +335,52 @@ export default function FormListPage() {
         </button>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 min-w-0 ml-0 md:ml-72">
+      {/* Main Content - full width when loading so only loading message is visible */}
+      <div className={`flex-1 min-w-0 ${loading ? "ml-0" : "ml-0 md:ml-72"}`}>
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-          <header className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
-                Operations / Forms & Checklist / STS Checklist
-              </p>
-              <h1 className="text-2xl font-bold text-white">
-                {FORM_TITLES[formPath] || `Form ${formPath}`}
-              </h1>
-              <p className="text-xs text-slate-200 mt-1">All submitted forms</p>
+          {loading ? (
+            <div className="flex items-center justify-center min-h-screen">
+              <p className="text-white/60">Loading...</p>
             </div>
-            <div className="flex items-center gap-4 flex-wrap">
-              <Link
-                href="/operations/sts-operations/new/form-checklist/sts-checklist"
-                className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
-              >
-                ← Back to Forms
-              </Link>
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
-                  Year
-                </span>
-                <select
-                  className="rounded-full px-3 py-1 text-xs bg-white/5 border border-white/10 text-white"
-                  value={selectedYear || ""}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                >
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </header>
+          ) : (
+            <>
+              <header className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
+                    Operations / Forms & Checklist / STS Checklist
+                  </p>
+                  <h1 className="text-2xl font-bold text-white">
+                    {FORM_TITLES[formPath] || `Form ${formPath}`}
+                  </h1>
+                  <p className="text-xs text-slate-200 mt-1">All submitted forms</p>
+                </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <Link
+                    href="/operations/sts-operations/new/form-checklist/sts-checklist"
+                    className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+                  >
+                    ← Back to Forms
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
+                      Year
+                    </span>
+                    <select
+                      className="rounded-full px-3 py-1 text-xs bg-white/5 border border-white/10 text-white"
+                      value={selectedYear || ""}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    >
+                      {availableYears.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </header>
 
-          {error && (
+              {error && (
             <div className="bg-red-950/40 border border-red-500/40 rounded-xl px-4 py-3 text-red-200 text-sm font-medium">
               {error}
             </div>
@@ -469,6 +469,8 @@ export default function FormListPage() {
                 </table>
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

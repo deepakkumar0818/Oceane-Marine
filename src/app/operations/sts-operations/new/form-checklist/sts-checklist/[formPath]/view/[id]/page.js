@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useParams, usePathname } from "next/navigation";
+import { useOperationsLoading } from "@/app/operations/OperationsLoadingContext";
 const sidebarTabs = [
   {
     key: "documentation",
@@ -31,7 +32,7 @@ const sidebarTabs = [
       {
         key: "quotation",
         label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/form",
+        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       },
       {
         key: "inspection-checklist",
@@ -144,6 +145,7 @@ export default function ViewFormPage() {
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { setPageLoading } = useOperationsLoading();
 
   useEffect(() => {
     fetchFormData();
@@ -153,6 +155,7 @@ export default function ViewFormPage() {
     try {
       setLoading(true);
       setError(null);
+      setPageLoading(true);
 
       const response = await fetch(
         `${API_BASE_URL}/${formPath}/list`,
@@ -185,6 +188,7 @@ export default function ViewFormPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -351,6 +355,7 @@ export default function ViewFormPage() {
     const d = formData;
     return {
       formNo: d.formNo ?? d.documentInfo?.formNo ?? '—',
+      revisionNo: d.revisionNo ?? d.documentInfo?.revisionNo ?? '—',
       issueDate: d.issueDate ?? d.revisionDate ?? d.documentInfo?.issueDate ?? null,
       approvedBy: d.approvedBy ?? d.documentInfo?.approvedBy ?? '—',
     };
@@ -795,16 +800,16 @@ export default function ViewFormPage() {
       {/* Main Content - Form-style layout like external STS forms */}
       <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-          <div className="mb-4">
-            <Link
-              href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
-              className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
-            >
-              ← Back to List
-            </Link>
+          <div className="mb-4 flex items-center justify-between gap-4">
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
               Operations / Forms & Checklist / STS Checklist
             </p>
+            <Link
+              href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold shadow-lg shadow-black/25 backdrop-blur-md transition duration-200 hover:translate-y-[1px]"
+            >
+              ← Back to List
+            </Link>
           </div>
 
           {/* Form card - same style as external Operations-STS-CheckList forms */}
@@ -823,6 +828,7 @@ export default function ViewFormPage() {
               </div>
               <div className="bg-gray-700 p-4 rounded min-w-[200px] text-sm space-y-1">
                 <div><strong>Form No:</strong> {getFormHeaderMeta().formNo}</div>
+                <div><strong>Rev No:</strong> {getFormHeaderMeta().revisionNo}</div>
                 <div><strong>Issue Date:</strong> {getFormHeaderMeta().issueDate ? formatDateOnly(getFormHeaderMeta().issueDate) : 'N/A'}</div>
                 <div><strong>Approved by:</strong> {getFormHeaderMeta().approvedBy}</div>
               </div>

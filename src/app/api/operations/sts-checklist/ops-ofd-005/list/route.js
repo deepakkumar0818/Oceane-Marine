@@ -40,10 +40,30 @@ export async function GET(req) {
       query.status = status;
     }
 
-    const checklists = await STSChecklist5.find(query)
+    let checklists = await STSChecklist5.find(query)
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Backfill documentInfo.revisionNo for docs created before revision was added
+    const byCreatedAsc = [...checklists].reverse();
+    checklists = checklists.map((doc) => {
+      const hasRevision = doc.documentInfo?.revisionNo != null && String(doc.documentInfo.revisionNo).trim() !== "";
+      if (hasRevision) return doc;
+      const index = byCreatedAsc.findIndex((d) => String(d._id) === String(doc._id));
+      const revisionNo = index >= 0 ? `${index + 1}.0` : "1.0";
+      return {
+        ...doc,
+        documentInfo: {
+          ...(doc.documentInfo || {}),
+          formNo: doc.documentInfo?.formNo || "OPS-OFD-005",
+          revisionNo,
+          issueDate: doc.documentInfo?.issueDate,
+          revisionDate: doc.documentInfo?.revisionDate,
+          approvedBy: doc.documentInfo?.approvedBy,
+        },
+      };
+    });
 
     // Get available years
     const allChecklists = await STSChecklist5.find({

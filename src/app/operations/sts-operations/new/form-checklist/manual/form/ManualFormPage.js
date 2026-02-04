@@ -32,7 +32,7 @@ const sidebarTabs = [
       {
         key: "quotation",
         label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/form",
+        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       },
       {
         key: "inspection-checklist",

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { buildDocumentHtml030, buildDocumentHtml030B } from "../sts-form/documentTemplate";
 
 const sidebarTabs = [
   {
@@ -32,7 +33,7 @@ const sidebarTabs = [
       {
         key: "quotation",
         label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/form",
+        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       },
       {
         key: "inspection-checklist",
@@ -92,65 +93,46 @@ export default function QuotationListPage() {
   const [expandedModules, setExpandedModules] = useState(new Set(["forms"]));
   const sidebarRef = useRef(null);
   
-  const [records, setRecords] = useState([]);
+  const [stsForms, setStsForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [downloading, setDownloading] = useState(null);
   const [year, setYear] = useState(currentYear);
 
-  const fetchRecords = async () => {
+  const fetchStsForms = async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = year 
-        ? `/api/operations/form-checklist/quotation/list?year=${year}`
-        : "/api/operations/form-checklist/quotation/list";
+      const url = year
+        ? `/api/operations/form-checklist/sts-quotation-form/list?year=${year}`
+        : "/api/operations/form-checklist/sts-quotation-form/list";
       const res = await fetch(url);
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load records");
-      }
-      setRecords(data.data || []);
+      if (res.ok) setStsForms(data.data || []);
+      else setStsForms([]);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to load quotations");
+      setStsForms([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRecords();
+    fetchStsForms();
   }, [year]);
 
-  const handleDownload = async (record) => {
-    setDownloading(record._id);
-    try {
-      const res = await fetch(
-        `/api/operations/form-checklist/quotation/${record._id}/download`
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to download file");
-      }
-
-      const blob = await res.blob();
-      const url = globalThis.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = record.filePath.split("/").pop() || `quotation-v${record.version}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      globalThis.URL.revokeObjectURL(url);
-      a.remove();
-    } catch (err) {
-      setError(err.message || "Failed to download file");
-    } finally {
-      setDownloading(null);
-    }
+  const handleEditSts = (record) => {
+    router.push(`/operations/sts-operations/new/form-checklist/quotations/sts-form?edit=${record._id}`);
   };
 
-  const handleEdit = (record) => {
-    router.push(`/operations/sts-operations/new/form-checklist/quotations/form?edit=${record._id}`);
+  const handleDownloadSts = (record) => {
+    const html = record.formType === "OPS-OFD-030B"
+      ? buildDocumentHtml030B(record)
+      : buildDocumentHtml030(record);
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+    w.focus();
   };
 
   if (loading) {
@@ -331,7 +313,7 @@ export default function QuotationListPage() {
             </div>
             <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
               <Link
-                href="/operations/sts-operations/new/form-checklist/quotations/form"
+                href="/operations/sts-operations/new/form-checklist/quotations/sts-form"
                 className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
               >
                 Quotation Form
@@ -352,92 +334,83 @@ export default function QuotationListPage() {
           </div>
         )}
 
-        {records.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
-            <p className="text-white/60">No records found for the selected year.</p>
+        {/* All generated quotations */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-white border-b border-white/10 pb-2">
+            All Quotations
+          </h2>
+          {loading ? (
+            <p className="text-white/60 text-sm">Loading quotations…</p>
+          ) : stsForms.length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+              <p className="text-white/60 mb-4">No quotations for the selected year.</p>
+              <Link
+                href="/operations/sts-operations/new/form-checklist/quotations/sts-form"
+                className="inline-block px-6 py-3 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600 transition"
+              >
+                Create Quotation
+              </Link>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/5 border-b border-white/10">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">Form Type</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">Client Name</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">Proposal Date</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">Created</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-white/90 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {stsForms.map((row) => (
+                      <tr key={row._id} className="hover:bg-white/5 transition">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-mono text-orange-400">{row.formType || "—"}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white/90">{row.clientName || "—"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white/90">
+                          {formatDate(row.proposalDate || row.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white/90">
+                          {formatDate(row.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadSts(row)}
+                              className="px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 text-xs font-medium hover:bg-sky-500/30 transition"
+                            >
+                              Download / Print
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditSts(row)}
+                              className="px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-medium hover:bg-orange-500/30 transition"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end">
             <Link
-              href="/operations/sts-operations/new/form-checklist/quotations/form"
-              className="mt-4 inline-block px-6 py-3 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition"
+              href="/operations/sts-operations/new/form-checklist/quotations/sts-form"
+              className="text-sm font-medium text-orange-400 hover:text-orange-300"
             >
-              Upload New Record
+              + New Quotation
             </Link>
           </div>
-        ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-white/5 border-b border-white/10">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Form Code
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Version
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Uploaded By
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Uploaded At
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  {records.map((record) => (
-                    <tr key={record._id} className="hover:bg-white/5 transition">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-mono text-white">
-                          {record.formCode || "—"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">v{record.version}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">
-                          {formatDate(record.date)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">
-                          {record.uploadedBy?.name || "—"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">
-                          {formatDate(record.uploadedAt)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleDownload(record)}
-                            disabled={downloading === record._id}
-                            className="px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 text-xs font-medium hover:bg-sky-500/30 transition disabled:opacity-50"
-                          >
-                            {downloading === record._id ? "Downloading..." : "Download"}
-                          </button>
-                          <button
-                            onClick={() => handleEdit(record)}
-                            className="px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-medium hover:bg-orange-500/30 transition"
-                          >
-                            Update
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        </section>
         </div>
       </div>
     </div>
