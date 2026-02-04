@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useParams, usePathname } from "next/navigation";
+import { useOperationsLoading } from "@/app/operations/OperationsLoadingContext";
 // OPS-OFD-014 Equipment Checklist row defaults (external-form layout)
 const OPS014_FENDER_ROW = { fenderId: "", endPlates: "", bShackle: "", swivel: "", secondShackle: "", mooringShackle: "", fenderBody: "", tires: "", pressure: "" };
 const OPS014_HOSE_ROW = { hoseId: "", endFlanges: "", bodyCondition: "", nutsBolts: "", markings: "" };
@@ -36,7 +37,7 @@ const sidebarTabs = [
       {
         key: "quotation",
         label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/form",
+        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       },
       {
         key: "inspection-checklist",
@@ -135,6 +136,7 @@ export default function EditFormPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const { setPageLoading } = useOperationsLoading();
 
   useEffect(() => {
     fetchFormData();
@@ -144,6 +146,7 @@ export default function EditFormPage() {
     try {
       setLoading(true);
       setError(null);
+      setPageLoading(true);
 
       const response = await fetch(
         `${API_BASE_URL}/${formPath}/list`,
@@ -176,6 +179,7 @@ export default function EditFormPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -1058,16 +1062,16 @@ export default function EditFormPage() {
       {/* Main Content - same form-style layout as view page */}
       <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-          <div className="mb-4">
-            <Link
-              href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
-              className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
-            >
-              ← Back to List
-            </Link>
+          <div className="mb-4 flex items-center justify-between gap-4">
             <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
               Operations / Forms & Checklist / STS Checklist
             </p>
+            <Link
+              href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold shadow-lg shadow-black/25 backdrop-blur-md transition duration-200 hover:translate-y-[1px]"
+            >
+              ← Back to List
+            </Link>
           </div>
 
           {success && (
@@ -1098,6 +1102,7 @@ export default function EditFormPage() {
               </div>
               <div className="bg-gray-700 p-4 rounded min-w-[200px] text-sm space-y-1">
                 <div><strong>Form No:</strong> {(formData?.formNo ?? formData?.documentInfo?.formNo) || '—'}</div>
+                <div><strong>Rev No:</strong> {(formData?.revisionNo ?? formData?.documentInfo?.revisionNo) || '—'}</div>
                 <div><strong>Issue Date:</strong> {formatDateOnly(formData?.issueDate ?? formData?.revisionDate ?? formData?.documentInfo?.issueDate ?? formData?.documentInfo?.revisionDate)}</div>
                 <div><strong>Approved by:</strong> {(formData?.approvedBy ?? formData?.documentInfo?.approvedBy) || '—'}</div>
               </div>

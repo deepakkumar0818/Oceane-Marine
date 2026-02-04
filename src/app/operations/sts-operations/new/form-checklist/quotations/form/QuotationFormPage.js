@@ -31,8 +31,13 @@ const sidebarTabs = [
       },
       {
         key: "quotation",
-        label: "Quotation",
+        label: "Quotation (Upload)",
         href: "/operations/sts-operations/new/form-checklist/quotations/form",
+      },
+      {
+        key: "sts-quotation",
+        label: "STS Quotation Form",
+        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       },
       {
         key: "inspection-checklist",

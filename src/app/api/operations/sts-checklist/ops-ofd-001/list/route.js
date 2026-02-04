@@ -40,10 +40,19 @@ export async function GET(req) {
       query.status = status;
     }
 
-    const checklists = await STSChecklistOne.find(query)
+    let checklists = await STSChecklistOne.find(query)
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Backfill root-level revisionNo for docs created before revision was added
+    const byCreatedAsc = [...checklists].reverse();
+    checklists = checklists.map((doc) => {
+      const hasRevision = doc.revisionNo != null && String(doc.revisionNo).trim() !== "";
+      if (hasRevision) return doc;
+      const index = byCreatedAsc.findIndex((d) => String(d._id) === String(doc._id));
+      return { ...doc, revisionNo: index >= 0 ? `${index + 1}.0` : "1.0" };
+    });
 
     // Get available years
     const allChecklists = await STSChecklistOne.find({
