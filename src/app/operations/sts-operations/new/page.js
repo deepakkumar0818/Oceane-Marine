@@ -46,7 +46,7 @@ const sidebarTabs = [
       {
         key: "sts-checklist",
         label: "STS Checklist",
-        href: "/operations/sts-operations/new/form-checklist/sts-checklist/form",
+        href: "/operations/sts-operations/new/form-checklist/sts-checklist",
       },
       {
         key: "jpo",
