@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSStandingOrder from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-011";
+import { incrementRevisionForUpdate } from "../../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -21,7 +22,7 @@ export async function POST(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const formData = await req.formData();
     const dataStr = formData.get("data");
 
@@ -64,8 +65,13 @@ export async function POST(req, { params }) {
       stampUrl = `/uploads/signatures/ops-ofd-011/${fileName}`;
     }
 
+    const revisionNo = incrementRevisionForUpdate(existing.documentInfo?.revisionNo);
+
     const updateData = {
-      documentInfo: body.documentInfo || existing.documentInfo || {},
+      documentInfo: {
+        ...(body.documentInfo || existing.documentInfo || {}),
+        revisionNo,
+      },
       superintendentSpecificInstructions:
         body.superintendentSpecificInstructions ||
         existing.superintendentSpecificInstructions ||

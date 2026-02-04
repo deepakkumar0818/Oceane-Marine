@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSHourlyQuantityLog from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-015";
+import { getNextRevisionForCreate } from "../../revision";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,8 +32,17 @@ export async function POST(req) {
 
     const body = JSON.parse(dataStr);
 
+    const revisionNo = await getNextRevisionForCreate(STSHourlyQuantityLog);
+
     // Prepare the document data
     const documentData = {
+      documentInfo: {
+        ...(body.documentInfo || {}),
+        formNo: body.documentInfo?.formNo || "OPS-OFD-015",
+        revisionNo,
+        issueDate: body.documentInfo?.issueDate ? new Date(body.documentInfo.issueDate) : new Date(),
+        approvedBy: body.documentInfo?.approvedBy || "JS",
+      },
       transferInfo: body.transferInfo || {},
       hourlyRecords: (body.hourlyRecords || []).map((record) => ({
         serialNumber: record.serialNumber,

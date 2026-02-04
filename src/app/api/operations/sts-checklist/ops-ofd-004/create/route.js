@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSChecklist4AF from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-004";
+import { getNextRevisionForCreate } from "../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -54,11 +55,13 @@ export async function POST(req) {
       signatureUrl = `/uploads/signatures/ops-ofd-004/${fileName}`;
     }
 
+    const revisionNo = await getNextRevisionForCreate(STSChecklist4AF);
+
     // Prepare the document data - map frontend fields to schema
     const documentData = {
       documentInfo: {
         formNo: body.formNo || "OPS-OFD-004",
-        revisionNo: body.revisionNo || "",
+        revisionNo,
         revisionDate: body.revisionDate ? new Date(body.revisionDate) : undefined,
         approvedBy: body.approvedBy || "JS",
         page: body.page || "",

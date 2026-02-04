@@ -16,7 +16,7 @@ export async function OPTIONS() {
 export async function GET(req, { params }) {
   await connectDB();
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const declaration = await STSDeclaration.findById(id).lean();
 

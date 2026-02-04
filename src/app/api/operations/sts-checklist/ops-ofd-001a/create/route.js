@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import ShipStandardQuestionnaire from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-001-A";
+import { getNextRevisionForCreate } from "../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -54,11 +55,13 @@ export async function POST(req) {
       signatureUrl = `/uploads/signatures/ops-ofd-001a/${fileName}`;
     }
 
+    const revisionNo = await getNextRevisionForCreate(ShipStandardQuestionnaire);
+
     // Prepare the document data - map frontend fields to schema
     const documentData = {
       documentInfo: {
         formNo: body.formNo || "OPS-OFD-001A",
-        revisionNo: body.revisionNo || "",
+        revisionNo,
         revisionDate: body.revisionDate ? new Date(body.revisionDate) : undefined,
         approvedBy: body.approvedBy || "JS",
       },

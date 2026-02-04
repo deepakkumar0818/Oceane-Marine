@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSHourlyQuantityLog from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-015";
+import { incrementRevisionForUpdate } from "../../../revision";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ export async function POST(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const formData = await req.formData();
     const dataStr = formData.get("data");
 
@@ -41,7 +42,19 @@ export async function POST(req, { params }) {
       );
     }
 
+    // Always compute revision from existing doc in DB (never use body.documentInfo.revisionNo)
+    const revisionNo = incrementRevisionForUpdate(existing.documentInfo?.revisionNo);
+
+    const documentInfo = {
+      ...(existing.documentInfo || {}),
+      formNo: body.documentInfo?.formNo || existing.documentInfo?.formNo || "OPS-OFD-015",
+      revisionNo,
+      issueDate: body.documentInfo?.issueDate ? new Date(body.documentInfo.issueDate) : existing.documentInfo?.issueDate,
+      approvedBy: body.documentInfo?.approvedBy ?? existing.documentInfo?.approvedBy ?? "JS",
+    };
+
     const updateData = {
+      documentInfo,
       transferInfo: body.transferInfo || existing.transferInfo || {},
       hourlyRecords: (body.hourlyRecords || existing.hourlyRecords || []).map((record) => ({
         serialNumber: record.serialNumber,
@@ -58,7 +71,7 @@ export async function POST(req, { params }) {
 
     const updatedLog = await STSHourlyQuantityLog.findByIdAndUpdate(
       id,
-      updateData,
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 

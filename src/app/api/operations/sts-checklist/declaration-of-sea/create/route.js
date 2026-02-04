@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSDeclaration from "@/lib/mongodb/models/operation-sts-checklist/DeclarationOfSea";
+import { getNextRevisionForCreate } from "../../revision";
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -30,31 +31,11 @@ export async function POST(req) {
       );
     }
 
-    // Auto-generate revision number (sequential: 1, 2, 3, ...)
-    // Find all declarations with revision numbers and get the maximum
-    const allDeclarations = await STSDeclaration.find({
-      revisionNo: { $exists: true, $ne: null, $ne: "" }
-    })
-      .select("revisionNo")
-      .lean();
+    const revisionNo = await getNextRevisionForCreate(STSDeclaration);
 
-    let maxRevision = 0;
-    
-    // Find the maximum numeric revision number
-    allDeclarations.forEach((decl) => {
-      const revNum = parseInt(decl.revisionNo, 10);
-      if (!isNaN(revNum) && revNum > maxRevision) {
-        maxRevision = revNum;
-      }
-    });
-
-    // Next revision number is max + 1, or 1 if no declarations exist
-    const nextRevisionNo = String(maxRevision + 1);
-
-    // Create new declaration with auto-generated revision number
     const newDeclaration = await STSDeclaration.create({
       ...body,
-      revisionNo: body.revisionNo || nextRevisionNo, // Use provided or auto-generated
+      revisionNo,
       version: body.version || "1.0",
       status: body.status || "Pending",
     });

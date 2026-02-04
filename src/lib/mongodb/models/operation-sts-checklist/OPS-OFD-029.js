@@ -1,6 +1,15 @@
 import mongoose from "mongoose";
 
 
+// ================= DOCUMENT INFO (form no, revision) =================
+const DocumentInfoSchema = new mongoose.Schema({
+  formNo: String,
+  revisionNo: String,
+  issueDate: Date,
+  approvedBy: String,
+}, { _id: false });
+
+
 // ================= PERSONAL DETAILS =================
 const PersonalDetailsSchema = new mongoose.Schema({
     name: String,
@@ -51,6 +60,8 @@ const TotalsSchema = new mongoose.Schema({
 // ======================================================
 
 const MooringMasterExpenseSheetSchema = new mongoose.Schema({
+
+    documentInfo: DocumentInfoSchema,
 
     personalDetails: PersonalDetailsSchema,
 

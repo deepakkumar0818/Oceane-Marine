@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSChecklist6AB from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-005B";
+import { getNextRevisionForCreate } from "../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -33,13 +34,16 @@ export async function POST(req) {
 
     const body = JSON.parse(dataStr);
 
+    const revisionNo = await getNextRevisionForCreate(STSChecklist6AB);
+
     // Prepare the document data
     const documentData = {
-      documentInfo: body.documentInfo || {
-        formNo: "OPS-OFD-005B",
-        revisionNo: "",
-        revisionDate: new Date(),
-        approvedBy: "JS",
+      documentInfo: {
+        ...(body.documentInfo || {}),
+        formNo: body.documentInfo?.formNo || "OPS-OFD-005B",
+        revisionNo,
+        revisionDate: body.documentInfo?.revisionDate ? new Date(body.documentInfo.revisionDate) : new Date(),
+        approvedBy: body.documentInfo?.approvedBy || "JS",
       },
       transferInfo: body.transferInfo || {},
       checklist6A: body.checklist6A || {},

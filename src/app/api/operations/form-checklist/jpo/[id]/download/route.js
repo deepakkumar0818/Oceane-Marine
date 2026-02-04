@@ -8,7 +8,7 @@ export async function GET(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const record = await Jpo.findById(id);
 
     if (!record) {

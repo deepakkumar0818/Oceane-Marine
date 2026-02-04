@@ -8,7 +8,7 @@ export async function GET(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const record = await Quotation.findById(id);
 
     if (!record) {

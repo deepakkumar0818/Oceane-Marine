@@ -40,10 +40,29 @@ export async function GET(req) {
       query.status = status;
     }
 
-    const expenseSheets = await MooringMasterExpenseSheet.find(query)
+    let expenseSheets = await MooringMasterExpenseSheet.find(query)
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Backfill documentInfo.revisionNo for docs created before revision was added
+    const byCreatedAsc = [...expenseSheets].reverse();
+    expenseSheets = expenseSheets.map((sheet) => {
+      const hasRevision = sheet.documentInfo?.revisionNo != null && String(sheet.documentInfo.revisionNo).trim() !== "";
+      if (hasRevision) return sheet;
+      const index = byCreatedAsc.findIndex((s) => String(s._id) === String(sheet._id));
+      const revisionNo = index >= 0 ? `${index + 1}.0` : "1.0";
+      return {
+        ...sheet,
+        documentInfo: {
+          ...(sheet.documentInfo || {}),
+          formNo: sheet.documentInfo?.formNo || "OPS-OFD-029",
+          revisionNo,
+          issueDate: sheet.documentInfo?.issueDate,
+          approvedBy: sheet.documentInfo?.approvedBy,
+        },
+      };
+    });
 
     // Get available years
     const allExpenseSheets = await MooringMasterExpenseSheet.find({

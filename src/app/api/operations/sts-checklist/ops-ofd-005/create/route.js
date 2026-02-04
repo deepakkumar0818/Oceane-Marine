@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSChecklist5 from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-005";
+import { getNextRevisionForCreate } from "../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -54,13 +55,16 @@ export async function POST(req) {
       signatureUrl = `/uploads/signatures/ops-ofd-005/${fileName}`;
     }
 
+    const revisionNo = await getNextRevisionForCreate(STSChecklist5);
+
     // Prepare the document data
     const documentData = {
-      documentInfo: body.documentInfo || {
-        formNo: "OPS-OFD-005",
-        revisionNo: "",
-        issueDate: new Date(),
-        approvedBy: "JS",
+      documentInfo: {
+        ...(body.documentInfo || {}),
+        formNo: body.documentInfo?.formNo || "OPS-OFD-005",
+        revisionNo,
+        issueDate: body.documentInfo?.issueDate ? new Date(body.documentInfo.issueDate) : new Date(),
+        approvedBy: body.documentInfo?.approvedBy || "JS",
       },
       transferInfo: body.transferInfo || {},
       checklist5A: body.checklist5A || [],

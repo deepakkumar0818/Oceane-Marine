@@ -183,7 +183,7 @@ export default function EquipmentBaseStockFormPage() {
         if (!res.ok) {
           throw new Error(data.error || "Failed to load existing form");
         }
-        const record = (data.data || []).find((r) => r._id === editId);
+        const record = (data.data || []).find((r) => String(r._id) === String(editId));
         if (!record) {
           setError("Form not found");
           return;

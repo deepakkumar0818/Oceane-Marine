@@ -5,7 +5,7 @@ import { connectDB } from "@/lib/config/connection";
 export async function DELETE(req, { params }) {
   try {
     await connectDB();
-    const { id } = params;
+    const { id } = await params;
     const userOperation = await StsOperation.findById(id);
     if (!userOperation) {
       return NextResponse.json(

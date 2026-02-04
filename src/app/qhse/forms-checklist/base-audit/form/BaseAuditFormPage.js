@@ -29,7 +29,7 @@ export default function BaseAuditFormPage() {
           const res = await fetch(`/api/qhse/form-checklist/base-audit/list`);
           const data = await res.json();
           if (res.ok && data.data) {
-            const report = data.data.find((r) => r._id === editId);
+            const report = data.data.find((r) => String(r._id) === String(editId));
             if (report) {
               setExistingReport(report);
               setForm({

@@ -6,7 +6,7 @@ export async function GET(req, { params } ) {
   try {
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
     const plan = await TrainingPlan.findById(id);
 
     if (!plan) {
@@ -29,7 +29,7 @@ export async function GET(req, { params } ) {
 export async function PUT(req, { params }) {
   try {
     await connectDB();
-    const { id } = params;
+    const { id } = await params;
     const existingPlan = await TrainingPlan.findById(id);
 
     if (!existingPlan) {

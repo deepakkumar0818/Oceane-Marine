@@ -160,7 +160,7 @@ export default function NewOperationPage() {
             fetch("/api/master/cargo-type/list"),
             fetch("/api/master/locations/list"),
             fetch("/api/master/mooring-master/list"),
-            fetch("/api/pms/equipment-used/list"),
+            fetch("/api/pms/equipment-inventory/primary-equipment/list"),
           ]);
 
         const cargoJson = await cargoRes.json();
@@ -171,7 +171,7 @@ export default function NewOperationPage() {
         setCargoTypes(cargoJson?.cargoTypes || []);
         setLocations(locationJson?.locations || []);
         setMooringMasters(mooringJson?.mooringMasters || []);
-        setEquipmentList(equipmentJson?.equipmentUsed || []);
+        setEquipmentList(equipmentJson?.equipments || []);
       } catch (error) {
         console.error("Failed to load masters", error);
       } finally {

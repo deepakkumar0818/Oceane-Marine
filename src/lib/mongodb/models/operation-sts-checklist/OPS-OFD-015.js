@@ -1,6 +1,15 @@
 import mongoose from "mongoose";
 
 
+// ================= DOCUMENT INFO (form no, revision) =================
+const DocumentInfoSchema = new mongoose.Schema({
+  formNo: String,
+  revisionNo: String,
+  issueDate: Date,
+  approvedBy: String,
+}, { _id: false });
+
+
 // ================= TRANSFER HEADER =================
 const TransferHeaderSchema = new mongoose.Schema({
 
@@ -40,6 +49,8 @@ const HourlyRecordSchema = new mongoose.Schema({
 // ======================================================
 
 const STSHourlyQuantityLogSchema = new mongoose.Schema({
+
+    documentInfo: DocumentInfoSchema,
 
     transferInfo: TransferHeaderSchema,
 

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useParams, usePathname } from "next/navigation";
-
 const sidebarTabs = [
   {
     key: "documentation",
@@ -83,6 +82,54 @@ const FORM_TITLES = {
 
 const API_BASE_URL = '/api/operations/sts-checklist';
 
+const SKIP_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy'];
+const SKIP_HEADER_FIELDS = ['formNo', 'revisionNo', 'revisionDate', 'issueDate', 'approvedBy', 'page', 'status'];
+const SIGNATURE_KEYS = ['signature', 'signatureImage', 'signatureBlock', 'constantHeadingShip', 'manoeuvringShip'];
+
+function isImageValue(value) {
+  if (typeof value !== 'string' || !value) return false;
+  return value.startsWith('data:image') || /^https?:\/\/.+(\.(png|jpg|jpeg|gif|webp)|(\?.*)?)$/i.test(value);
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  try {
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return String(dateString);
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return String(dateString);
+  }
+}
+
+function formatDateOnly(dateString) {
+  if (!dateString) return 'N/A';
+  try {
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return String(dateString);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return String(dateString);
+  }
+}
+
+function labelFromKey(key) {
+  const label = key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (s) => s.toUpperCase())
+    .trim();
+  if (key === 'signatureBlock') return 'Signature';
+  if (key === 'constantHeadingShip') return 'Constant Heading Ship or Berthed Ship';
+  if (key === 'manoeuvringShip') return 'Manoeuvring Ship or Outer Ship';
+  return label;
+}
+
 export default function ViewFormPage() {
   const router = useRouter();
   const params = useParams();
@@ -124,7 +171,7 @@ export default function ViewFormPage() {
       const result = await response.json();
 
       if (result.success) {
-        const form = result.data.find((f) => f._id === id);
+        const form = result.data.find((f) => String(f._id) === String(id));
         if (form) {
           setFormData(form);
         } else {
@@ -141,20 +188,82 @@ export default function ViewFormPage() {
     }
   };
 
-  const renderFormData = (data, depth = 0) => {
-    if (data === null || data === undefined) return <span className="text-white/50">N/A</span>;
-    
-    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+  const renderSignatureImage = (src, alt = 'Signature') => {
+    if (!src || !isImageValue(src)) return <span className="text-gray-400">N/A</span>;
+    return (
+      <div className="mt-1">
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-24 border border-gray-600 rounded object-contain bg-white"
+        />
+      </div>
+    );
+  };
+
+  const isChecklistArray = (arr) => {
+    if (!Array.isArray(arr) || arr.length === 0) return false;
+    const first = arr[0];
+    return typeof first === 'object' && first !== null && ('description' in first || 'clNumber' in first);
+  };
+
+  const renderFormData = (data, depth = 0, parentKey = '') => {
+    if (data === null || data === undefined) return <span className="text-gray-400">N/A</span>;
+
+    if (typeof data === 'string') {
+      if (isImageValue(data)) return renderSignatureImage(data, 'Signature');
+      return <span className="text-white/90">{data}</span>;
+    }
+    if (typeof data === 'number' || typeof data === 'boolean') {
       return <span className="text-white/90">{String(data)}</span>;
     }
 
     if (Array.isArray(data)) {
-      if (data.length === 0) return <span className="text-white/50">Empty</span>;
+      if (data.length === 0) return <span className="text-gray-400">Empty</span>;
+      if (isChecklistArray(data)) {
+        const hasCl = data.some((r) => 'clNumber' in r);
+        const hasStatus = data.some((r) => 'status' in r);
+        const hasRemarks = data.some((r) => r.remarks != null && r.remarks !== '');
+        return (
+          <div className="overflow-x-auto my-2">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  {hasCl && <th className="border border-gray-600 p-2 text-center w-14">CL</th>}
+                  <th className="border border-gray-600 p-2 text-left">Description</th>
+                  {hasStatus && <th className="border border-gray-600 p-2 text-center w-24">Status</th>}
+                  {hasRemarks && <th className="border border-gray-600 p-2 text-left">Remarks</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    {hasCl && (
+                      <td className="border border-gray-600 p-2 text-center font-semibold">
+                        {row.clNumber ?? row.id ?? idx + 1}
+                      </td>
+                    )}
+                    <td className="border border-gray-600 p-2 text-white/90">{row.description ?? '—'}</td>
+                    {hasStatus && (
+                      <td className="border border-gray-600 p-2 text-center">
+                        {row.status ?? '—'}
+                      </td>
+                    )}
+                    {hasRemarks && (
+                      <td className="border border-gray-600 p-2 text-white/80">{row.remarks ?? row.userRemark ?? '—'}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
       return (
         <div className="space-y-2">
           {data.map((item, index) => (
-            <div key={index} className="ml-4 border-l-2 border-white/20 pl-4">
-              {renderFormData(item, depth + 1)}
+            <div key={index} className="ml-4 border-l-2 border-gray-600 pl-4">
+              {renderFormData(item, depth + 1, parentKey)}
             </div>
           ))}
         </div>
@@ -162,31 +271,327 @@ export default function ViewFormPage() {
     }
 
     if (typeof data === 'object') {
-      const skipFields = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy'];
-      const entries = Object.entries(data).filter(([key]) => !skipFields.includes(key));
-
-      if (entries.length === 0) return <span className="text-white/50">Empty</span>;
+      const isTopLevel = depth === 0;
+      const skipSet = new Set([...SKIP_FIELDS, ...(isTopLevel ? SKIP_HEADER_FIELDS : [])]);
+      const entries = Object.entries(data).filter(([key]) => !skipSet.has(key));
+      if (entries.length === 0) return <span className="text-gray-400">Empty</span>;
 
       return (
-        <div className="space-y-3">
-          {entries.map(([key, value]) => (
-            <div key={key} className="border-b border-white/10 pb-2">
-              <div className="font-semibold text-orange-400 mb-1 capitalize text-sm">
-                {key.replace(/([A-Z])/g, ' $1').trim()}
+        <div className="space-y-4">
+          {entries.map(([key, value]) => {
+            const label = labelFromKey(key);
+            if (key === 'signatureBlock' && value && typeof value === 'object') {
+              const sigSrc = value.signature ?? value.signatureImage ?? value.mooringMasterSignature;
+              return (
+                <div key={key} className="border-b border-gray-600 pb-4">
+                  <div className="font-semibold text-gray-300 mb-2">{label}</div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {value.name != null && (
+                      <div><span className="text-gray-400">Name:</span> <span className="text-white/90">{value.name}</span></div>
+                    )}
+                    {value.rank != null && (
+                      <div><span className="text-gray-400">Rank:</span> <span className="text-white/90">{value.rank}</span></div>
+                    )}
+                    {value.date != null && (
+                      <div><span className="text-gray-400">Date:</span> <span className="text-white/90">{formatDateOnly(value.date)}</span></div>
+                    )}
+                    {(value.signature || value.signatureImage || value.mooringMasterSignature) && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 block mb-1">Signature:</span>
+                        {renderSignatureImage(sigSrc)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            if ((key === 'constantHeadingShip' || key === 'manoeuvringShip') && value && typeof value === 'object') {
+              return (
+                <div key={key} className="bg-gray-700/50 p-4 rounded border border-gray-600">
+                  <h4 className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">{label}</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {value.name != null && <div><span className="text-gray-400">Name:</span> <span className="text-white/90">{value.name}</span></div>}
+                    {value.rank != null && <div><span className="text-gray-400">Rank:</span> <span className="text-white/90">{value.rank}</span></div>}
+                    {value.date != null && <div><span className="text-gray-400">Date:</span> <span className="text-white/90">{formatDateOnly(value.date)}</span></div>}
+                    {value.time != null && <div><span className="text-gray-400">Time:</span> <span className="text-white/90">{value.time}</span></div>}
+                    {value.signature && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 block mb-1">Signature:</span>
+                        {renderSignatureImage(value.signature)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            if (typeof value === 'string' && isImageValue(value)) {
+              return (
+                <div key={key} className="border-b border-gray-600 pb-3">
+                  <div className="font-semibold text-gray-300 mb-1">{label}</div>
+                  {renderSignatureImage(value)}
+                </div>
+              );
+            }
+            return (
+              <div key={key} className="border-b border-gray-600 pb-3">
+                <div className="font-semibold text-gray-300 mb-1 text-sm">{label}</div>
+                <div className="ml-0">{renderFormData(value, depth + 1, key)}</div>
               </div>
-              <div className="ml-4">
-                {renderFormData(value, depth + 1)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
 
-    return <span className="text-white/50">Unknown type</span>;
+    return <span className="text-gray-400">—</span>;
   };
 
-  const formatDate = (dateString) => {
+  const getFormHeaderMeta = () => {
+    if (!formData) return {};
+    const d = formData;
+    return {
+      formNo: d.formNo ?? d.documentInfo?.formNo ?? '—',
+      issueDate: d.issueDate ?? d.revisionDate ?? d.documentInfo?.issueDate ?? null,
+      approvedBy: d.approvedBy ?? d.documentInfo?.approvedBy ?? '—',
+    };
+  };
+
+  // OPS-OFD-014 Equipment Checklist: external-form layout (Job Info grid + 3 tables + Remarks + Signature)
+  const renderOPSOFD014ViewBody = () => {
+    const job = formData?.jobInfo || {};
+    const fender = formData?.fenderEquipment || [];
+    const hose = formData?.hoseEquipment || [];
+    const other = formData?.otherEquipment || [];
+    const remarks = formData?.remarks ?? '';
+    const signature = formData?.signatureBlock?.mooringMasterSignature;
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Job Information</h2>
+          <div className="grid grid-cols-5 gap-4">
+            <div><div className="text-sm text-gray-400 mb-1">Job #</div><div className="text-white/90">{job.jobNumber || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Date</div><div className="text-white/90">{formatDateOnly(job.date)}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Time</div><div className="text-white/90">{job.time || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Mooring Master</div><div className="text-white/90">{job.mooringMasterName || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Location</div><div className="text-white/90">{job.location || '—'}</div></div>
+          </div>
+          <div className="mt-3 flex gap-4">
+            <span className="text-sm text-gray-400">Operation Phase:</span>
+            <span className="text-white/90">{job.operationPhase === 'AFTER_OPERATION' ? 'After Operation' : 'Before Operation'}</span>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Fender Equipment Checklist</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-center bg-gray-600">Fender ID #</th>
+                  <th className="border border-gray-600 p-3 text-center">End Plates</th>
+                  <th className="border border-gray-600 p-3 text-center">B. Shackle</th>
+                  <th className="border border-gray-600 p-3 text-center">Swivel</th>
+                  <th className="border border-gray-600 p-3 text-center">2nd Shackle</th>
+                  <th className="border border-gray-600 p-3 text-center">Mooring Shackle</th>
+                  <th className="border border-gray-600 p-3 text-center">Fender Body</th>
+                  <th className="border border-gray-600 p-3 text-center">Tires</th>
+                  <th className="border border-gray-600 p-3 text-center">Pressure</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fender.length === 0 ? (
+                  <tr><td colSpan={9} className="border border-gray-600 p-3 text-center text-gray-400">No rows</td></tr>
+                ) : fender.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 bg-gray-700 text-white/90">{row.fenderId ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.endPlates ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.bShackle ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.swivel ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.secondShackle ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.mooringShackle ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.fenderBody ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.tires ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.pressure ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Hose Equipment Checklist</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-center bg-gray-600">Hose ID #</th>
+                  <th className="border border-gray-600 p-3 text-center">End Flanges</th>
+                  <th className="border border-gray-600 p-3 text-center">Body Condition</th>
+                  <th className="border border-gray-600 p-3 text-center">Nuts/Bolts</th>
+                  <th className="border border-gray-600 p-3 text-center">Markings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hose.length === 0 ? (
+                  <tr><td colSpan={5} className="border border-gray-600 p-3 text-center text-gray-400">No rows</td></tr>
+                ) : hose.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 bg-gray-700 text-white/90">{row.hoseId ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.endFlanges ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.bodyCondition ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.nutsBolts ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.markings ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Other Equipment Checklist</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-center bg-gray-600">Other Equipment ID #</th>
+                  <th className="border border-gray-600 p-3 text-center">Gaskets</th>
+                  <th className="border border-gray-600 p-3 text-center">Ropes</th>
+                  <th className="border border-gray-600 p-3 text-center">Wires</th>
+                  <th className="border border-gray-600 p-3 text-center">Billy Pugh</th>
+                  <th className="border border-gray-600 p-3 text-center">Lifting Strops</th>
+                </tr>
+              </thead>
+              <tbody>
+                {other.length === 0 ? (
+                  <tr><td colSpan={6} className="border border-gray-600 p-3 text-center text-gray-400">No rows</td></tr>
+                ) : other.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 bg-gray-700 text-white/90">{row.equipmentId ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.gaskets ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.ropes ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.wires ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.billyPugh ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.liftingStrops ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-6 border-t border-gray-600 pt-6">
+          <div>
+            <div className="text-sm font-semibold text-gray-300 mb-2">Signature of Mooring Master</div>
+            {signature ? (
+              <img src={signature} alt="Signature" className="max-w-full max-h-32 border border-gray-600 rounded object-contain bg-white p-2" />
+            ) : <span className="text-gray-400">—</span>}
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-gray-300 mb-2">Remarks</div>
+            <div className="text-white/90 whitespace-pre-wrap min-h-[6rem]">{remarks || '—'}</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // OPS-OFD-018 Timesheet: external-form layout (Basic Info, Operation Timings, Additional Activity, Weather/Cargo, Final Remarks)
+  const renderOPSOFD018ViewBody = () => {
+    const basic = formData?.basicInfo || {};
+    const opTimings = formData?.operationTimings || [];
+    const additional = formData?.additionalActivities || [];
+    const weather = formData?.weatherDelay || {};
+    const cargo = formData?.cargoInfo || {};
+    const finalRemarks = formData?.finalRemarks ?? '';
+    const toDateStr = (v) => (v ? (typeof v === 'string' ? v : formatDateOnly(v)) : '—');
+    const toTimeStr = (v) => (v != null && v !== '' ? String(v) : '—');
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Basic Info</h2>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div><div className="text-sm text-gray-400 mb-1">STS Superintendent</div><div className="text-white/90">{basic.stsSuperintendent || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Job No.</div><div className="text-white/90">{basic.jobNumber || '—'}</div></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><div className="text-sm text-gray-400 mb-1">Receiving Vessel</div><div className="text-white/90">{basic.receivingVessel || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Discharging Vessel</div><div className="text-white/90">{basic.dischargingVessel || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Support Craft (Mob/Demob)</div><div className="text-white/90">{basic.supportCraftMobDemob || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Location</div><div className="text-white/90">{basic.location || '—'}</div></div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">STS Operation Timings</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-3 text-left">Activities</th><th colSpan={2} className="border border-gray-600 p-3 text-center">From</th><th colSpan={2} className="border border-gray-600 p-3 text-center">To</th><th className="border border-gray-600 p-3 text-left">Remarks</th></tr>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-2"></th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2"></th></tr>
+              </thead>
+              <tbody>
+                {opTimings.length === 0 ? <tr><td colSpan={6} className="border border-gray-600 p-3 text-center text-gray-400">No rows</td></tr> : opTimings.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 text-white/90 font-medium">{row.activityName ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toDateStr(row.fromDate)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toTimeStr(row.fromTime)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toDateStr(row.toDate)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toTimeStr(row.toTime)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.remarks ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Additional Activity</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-3 text-left">Activities</th><th colSpan={2} className="border border-gray-600 p-3 text-center">From</th><th colSpan={2} className="border border-gray-600 p-3 text-center">To</th><th className="border border-gray-600 p-3 text-left">Remarks</th></tr>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-2"></th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2"></th></tr>
+              </thead>
+              <tbody>
+                {additional.length === 0 ? <tr><td colSpan={6} className="border border-gray-600 p-3 text-center text-gray-400">No rows</td></tr> : additional.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 text-white/90">{row.activityName ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toDateStr(row.fromDate)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toTimeStr(row.fromTime)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toDateStr(row.toDate)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90 text-center">{toTimeStr(row.toTime)}</td>
+                    <td className="border border-gray-600 p-2 text-white/90">{row.remarks ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200 mb-4">Significant Weather Which Caused Delay</h2>
+            <div className="space-y-3">
+              <div><div className="text-sm text-gray-400 mb-1">Sea</div><div className="text-white/90">{weather.sea ?? '—'}</div></div>
+              <div><div className="text-sm text-gray-400 mb-1">Swell</div><div className="text-white/90">{weather.swell ?? '—'}</div></div>
+              <div><div className="text-sm text-gray-400 mb-1">Wind</div><div className="text-white/90">{weather.wind ?? '—'}</div></div>
+              <div><div className="text-sm text-gray-400 mb-1">Total Exposure Hours</div><div className="text-white/90">{weather.totalExposureHours ?? '—'}</div></div>
+            </div>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200 mb-4">Cargo</h2>
+            <div className="space-y-3">
+              <div><div className="text-sm text-gray-400 mb-1">Cargo</div><div className="text-white/90">{cargo.cargoName ?? '—'}</div></div>
+              <div><div className="text-sm text-gray-400 mb-1">Quantity</div><div className="text-white/90">{cargo.cargoQuantity ?? '—'}</div></div>
+              <div><div className="text-sm text-gray-400 mb-1">Cargo Pumping Time</div><div className="text-white/90">{cargo.cargoPumpingTime ?? '—'}</div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Equipment / Operational / Incident / Delays etc, Remarks</h2>
+          <div className="text-white/90 whitespace-pre-wrap min-h-[4rem]">{finalRemarks || '—'}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const formatDateDisplay = (dateString) => {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleString('en-US', {
@@ -387,54 +792,62 @@ export default function ViewFormPage() {
         </button>
       )}
 
-      {/* Main Content */}
+      {/* Main Content - Form-style layout like external STS forms */}
       <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-          <header className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <Link
-                href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
-                className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
-              >
-                ← Back to List
-              </Link>
-              <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
-                Operations / Forms & Checklist / STS Checklist
-              </p>
-              <h1 className="text-2xl font-bold text-white">View Form Data</h1>
-              <p className="text-xs text-slate-200 mt-1">
-                Form ID: <span className="font-mono text-orange-400">{id.substring(0, 12)}...</span>
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-white/60">Created</div>
-              <div className="text-white/90">{formatDate(formData.createdAt)}</div>
-              <div className="text-sm text-white/60 mt-2">Status</div>
-              <div className="text-green-400 font-semibold">{formData.status || 'DRAFT'}</div>
-            </div>
-          </header>
-
-          {/* Form Data Display */}
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="space-y-4">
-              {renderFormData(formData)}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 justify-end">
+          <div className="mb-4">
             <Link
               href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
-              className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm font-medium"
+              className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
             >
-              Back to List
+              ← Back to List
             </Link>
-            <Link
-              href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/edit/${id}`}
-              className="px-6 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg transition text-sm font-medium text-white"
-            >
-              Edit Form
-            </Link>
+            <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
+              Operations / Forms & Checklist / STS Checklist
+            </p>
+          </div>
+
+          {/* Form card - same style as external Operations-STS-CheckList forms */}
+          <div className="max-w-7xl mx-auto bg-gray-800 rounded-lg shadow-2xl p-8 text-white">
+            {/* Header row: logo area, title, form meta (Form No, Issue Date, Approved by) */}
+            <div className="flex justify-between items-start mb-8 border-b border-gray-700 pb-6">
+              <div className="w-48 flex items-center justify-start">
+                <span className="text-gray-500 text-sm font-semibold">OCEANE</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center text-center px-4">
+                <h1 className="text-2xl font-bold mb-2">AT SEA SHIP TO SHIP TRANSFER</h1>
+                <h2 className="text-xl font-semibold text-gray-200">
+                  {FORM_TITLES[formPath] || formPath}
+                </h2>
+                <p className="text-xs text-gray-400 mt-2">View only</p>
+              </div>
+              <div className="bg-gray-700 p-4 rounded min-w-[200px] text-sm space-y-1">
+                <div><strong>Form No:</strong> {getFormHeaderMeta().formNo}</div>
+                <div><strong>Issue Date:</strong> {getFormHeaderMeta().issueDate ? formatDateOnly(getFormHeaderMeta().issueDate) : 'N/A'}</div>
+                <div><strong>Approved by:</strong> {getFormHeaderMeta().approvedBy}</div>
+              </div>
+            </div>
+
+            {/* Form body: OPS-OFD-014 / OPS-OFD-018 use external-form layout; others use generic render */}
+            <div className="space-y-6">
+              {formPath === "ops-ofd-014" ? renderOPSOFD014ViewBody() : formPath === "ops-ofd-018" ? renderOPSOFD018ViewBody() : renderFormData(formData)}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-4 justify-end mt-8 pt-6 border-t border-gray-700">
+              <Link
+                href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
+                className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition text-sm font-medium"
+              >
+                Back to List
+              </Link>
+              <Link
+                href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/edit/${id}`}
+                className="px-6 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg transition text-sm font-medium text-white"
+              >
+                Edit Form
+              </Link>
+            </div>
           </div>
         </div>
       </div>
