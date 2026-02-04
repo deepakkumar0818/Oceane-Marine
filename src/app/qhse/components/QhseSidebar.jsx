@@ -6,6 +6,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const sidebarTabs = [
   {
+    key: "controlled-document-register",
+    label: "Controlled document register",
+    href: "/qhse/controlled-document-register",
+  },
+  {
     key: "training",
     label: "Training",
     href: "/qhse/training/create/plan",
@@ -124,6 +129,11 @@ const sidebarTabs = [
     label: "Risk Assessment",
     href: "/qhse/risk-assessment/form",
   },
+  {
+    key: "archive",
+    label: "Archive",
+    href: "/qhse/archive",
+  },
 ];
 
 export default function QhseSidebar() {
@@ -139,7 +149,9 @@ export default function QhseSidebar() {
 
   // Derive active tab from current route and auto-expand nested submodules
   useEffect(() => {
-    if (pathname.startsWith("/qhse/defects-list")) {
+    if (pathname.startsWith("/qhse/controlled-document-register")) {
+      setActiveTab("controlled-document-register");
+    } else if (pathname.startsWith("/qhse/defects-list")) {
       setActiveTab("defects");
     } else if (pathname.startsWith("/qhse/training")) {
       setActiveTab("training");
@@ -227,6 +239,8 @@ export default function QhseSidebar() {
       setActiveTab("audits");
     } else if (pathname.startsWith("/qhse/risk-assessment")) {
       setActiveTab("risk-assessment-main");
+    } else if (pathname.startsWith("/qhse/archive")) {
+      setActiveTab("archive");
     }
   }, [pathname]);
 
