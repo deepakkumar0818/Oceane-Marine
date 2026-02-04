@@ -133,4 +133,4 @@ const STSChecklist5ACSchema = new mongoose.Schema({
 
 
 export default mongoose.models.STSChecklist5 ||
-    mongoose.model("STSChecklist5", STSChecklist5Schema);
+    mongoose.model("STSChecklist5", STSChecklist5ACSchema);

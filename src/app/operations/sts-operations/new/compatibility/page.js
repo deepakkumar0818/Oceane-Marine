@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { computeAll } from "./calculations";
 
@@ -35,7 +35,7 @@ const emptyShip = () => ({
   ManifoldToRail: "",
 });
 
-export default function CompatibilityPage() {
+function CompatibilityPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const editId = searchParams?.get("edit");
@@ -627,5 +627,17 @@ export default function CompatibilityPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CompatibilityPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-transparent text-white flex items-center justify-center">
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-8 py-6 text-white/70">Loading...</div>
+      </div>
+    }>
+      <CompatibilityPageContent />
+    </Suspense>
   );
 }
