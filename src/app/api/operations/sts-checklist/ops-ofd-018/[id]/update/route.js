@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSTimesheet from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-018";
+import { incrementRevisionForUpdate } from "../../../revision";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ export async function POST(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const formData = await req.formData();
     const dataStr = formData.get("data");
 
@@ -41,8 +42,13 @@ export async function POST(req, { params }) {
       );
     }
 
+    const revisionNo = incrementRevisionForUpdate(existing.documentInfo?.revisionNo);
+
     const updateData = {
-      documentInfo: body.documentInfo || existing.documentInfo || {},
+      documentInfo: {
+        ...(body.documentInfo || existing.documentInfo || {}),
+        revisionNo,
+      },
       basicInfo: body.basicInfo || existing.basicInfo || {},
       operationTimings: (body.operationTimings || existing.operationTimings || []).map((timing) => ({
         activityName: timing.activityName || "",

@@ -19,7 +19,7 @@ export default function AuditInspectionPlannerViewPage() {
         const res = await fetch("/api/qhse/audit-inspection-planner/list");
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to load planner");
-        const found = (data.data || []).find((p) => p._id === id);
+        const found = (data.data || []).find((p) => String(p._id) === String(id));
         if (!found) throw new Error("Planner not found");
         setItem(found);
       } catch (err) {

@@ -174,7 +174,7 @@ export default function CompatibilityPage() {
       operationNumber: operationNumber.trim(),
       year: Number(year),
       locationId: locationId || null,
-      locationName: locationName || (locations.find((l) => l._id === locationId)?.name ?? ""),
+      locationName: locationName || (locations.find((l) => String(l._id) === String(locationId))?.name ?? ""),
       section: calcSection,
       STBL: {
         name: STBL.name,
@@ -382,7 +382,7 @@ export default function CompatibilityPage() {
                       onChange={(e) => {
                         const id = e.target.value;
                         setLocationId(id);
-                        const loc = locations.find((l) => l._id === id);
+                        const loc = locations.find((l) => String(l._id) === String(id));
                         setLocationName(loc?.name ?? "");
                       }}
                       className={inputClass}

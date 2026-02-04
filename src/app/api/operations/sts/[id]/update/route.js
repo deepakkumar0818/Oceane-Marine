@@ -6,7 +6,7 @@ import path from "node:path";
 
 export async function PUT(req, { params }) {
   await connectDB();
-  const { id } = params;
+  const { id } = await params;
 
   try {
     const existing = await StsOperation.findById(id);

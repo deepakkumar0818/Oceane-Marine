@@ -5,7 +5,7 @@ import DrillPlan from "@/lib/mongodb/models/qhse-drill/DrillPlan";
 export async function GET(req, { params }) {
   try {
     await connectDB();
-    const { id } = params;
+    const { id } = await params;
     const plan = await DrillPlan.findById(id);
 
     if (!plan) {
@@ -29,7 +29,7 @@ export async function GET(req, { params }) {
 export async function PUT(req, { params }) {
   try {
     await connectDB();
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const year = body?.year ? Number.parseInt(body.year, 10) : null;
 

@@ -6,7 +6,7 @@ import MooringMaster from "@/lib/mongodb/models/MooringMaster";
 
 export async function PATCH(req, { params }) {
   await connectDB();
-  const { id } = params;
+  const { id } = await params;
 
   try {
     const operation = await StsOperation.findById(id);

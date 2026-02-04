@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSChecklistOne from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-001";
+import { incrementRevisionForUpdate } from "../../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -21,7 +22,7 @@ export async function POST(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const formData = await req.formData();
     const dataStr = formData.get("data");
 
@@ -65,10 +66,12 @@ export async function POST(req, { params }) {
       signatureUrl = `/uploads/signatures/ops-ofd-001/${fileName}`;
     }
 
+    const revisionNo = incrementRevisionForUpdate(existing.revisionNo);
+
     // Prepare update data
     const updateData = {
       formNo: body.formNo || existing.formNo || "OPS-OFD-001",
-      revisionNo: body.revisionNo || existing.revisionNo || "",
+      revisionNo,
       revisionDate: body.revisionDate
         ? new Date(body.revisionDate)
         : existing.revisionDate,

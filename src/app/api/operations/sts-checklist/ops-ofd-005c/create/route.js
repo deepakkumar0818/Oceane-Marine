@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSChecklist5C from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-005C";
+import { getNextRevisionForCreate } from "../../revision";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,13 +32,16 @@ export async function POST(req) {
 
     const body = JSON.parse(dataStr);
 
+    const revisionNo = await getNextRevisionForCreate(STSChecklist5C);
+
     // Prepare the document data
     const documentData = {
-      documentInfo: body.documentInfo || {
-        formNo: "OPS-OFD-005C",
-        revisionNo: "",
-        issueDate: new Date(),
-        approvedBy: "JS",
+      documentInfo: {
+        ...(body.documentInfo || {}),
+        formNo: body.documentInfo?.formNo || "OPS-OFD-005C",
+        revisionNo,
+        issueDate: body.documentInfo?.issueDate ? new Date(body.documentInfo.issueDate) : new Date(),
+        approvedBy: body.documentInfo?.approvedBy || "JS",
       },
       terminalTransferInfo: body.terminalTransferInfo || {},
       checklistItems: body.checklistItems || [],

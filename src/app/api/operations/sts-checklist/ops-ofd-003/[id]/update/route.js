@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import STSChecklist3A3B from "@/lib/mongodb/models/operation-sts-checklist/OPS-OFD-003";
+import { incrementRevisionForUpdate } from "../../../revision";
 import fs from "fs/promises";
 import path from "path";
 
@@ -21,7 +22,7 @@ export async function POST(req, { params }) {
   await connectDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const formData = await req.formData();
     const dataStr = formData.get("data");
 
@@ -69,7 +70,7 @@ export async function POST(req, { params }) {
     const updateData = {
       documentInfo: {
         formNo: body.formNo || existing.documentInfo?.formNo || "OPS-OFD-003",
-        revisionNo: body.revisionNo || existing.documentInfo?.revisionNo || "",
+        revisionNo: incrementRevisionForUpdate(existing.documentInfo?.revisionNo),
         issueDate: body.issueDate
           ? new Date(body.issueDate)
           : existing.documentInfo?.issueDate || new Date(),

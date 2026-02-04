@@ -169,27 +169,30 @@ export default function FormListPage() {
     router.push(`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/edit/${id}`);
   };
 
-  const getStatusBadge = (status) => {
-    const statusColors = {
-      DRAFT: 'bg-gray-600',
-      SUBMITTED: 'bg-yellow-600',
-      APPROVED: 'bg-green-600',
-      SIGNED: 'bg-blue-600',
-      ARCHIVED: 'bg-gray-500',
-      FINALIZED: 'bg-purple-600',
-      PENDING: 'bg-orange-600',
-      PAID: 'bg-green-500',
+  const getFormDisplayFields = (form) => {
+    const rawVessel =
+      form.vesselDetails?.vesselName ??
+      form.vesselName ??
+      '';
+    const vessel = typeof rawVessel === 'string' && rawVessel ? rawVessel : '—';
+    const rawLocation =
+      form.vesselDetails?.transferLocation ??
+      form.transferLocation ??
+      form.transferLocationName ??
+      '';
+    const location = typeof rawLocation === 'string' && rawLocation ? rawLocation : '—';
+    const issueDate = form.issueDate ?? form.revisionDate ?? form.vesselDetails?.plannedTransferDateTime ?? form.documentInfo?.revisionDate ?? form.createdAt;
+    // Many forms (e.g. OPS-OFD-008) store formNo/revisionNo inside documentInfo
+    const formNoFromTitle = FORM_TITLES[formPath]?.split(' - ')[0];
+    const formNo = form.formNo ?? form.documentInfo?.formNo ?? formNoFromTitle ?? '—';
+    const revisionNo = form.revisionNo ?? form.documentInfo?.revisionNo ?? '—';
+    return {
+      formNo,
+      revisionNo,
+      issueDate,
+      vessel,
+      location,
     };
-
-    return (
-      <span
-        className={`px-2 py-1 rounded text-xs font-medium ${
-          statusColors[status] || 'bg-gray-600'
-        }`}
-      >
-        {status || 'DRAFT'}
-      </span>
-    );
   };
 
   if (loading) {
@@ -394,13 +397,19 @@ export default function FormListPage() {
                   <thead className="bg-white/5 border-b border-white/10">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                        ID
+                        Form No
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                        Created Date
+                        Rev No
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                        Status
+                        Issue Date
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
+                        Vessel
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
+                        Location
                       </th>
                       <th className="px-6 py-4 text-center text-xs font-semibold text-white/90 uppercase tracking-wider w-48">
                         Actions
@@ -408,39 +417,54 @@ export default function FormListPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
-                    {forms.map((form) => (
-                      <tr key={form._id} className="hover:bg-white/5 transition">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-mono text-orange-400">
-                            {form._id?.substring(0, 8)}...
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-white/90">
-                            {formatDate(form.createdAt)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(form.status)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex gap-2 justify-center">
-                            <button
-                              onClick={() => handleView(form._id)}
-                              className="px-3 py-1.5 bg-blue-500/20 text-blue-300 text-xs font-medium hover:bg-blue-500/30 rounded-lg transition"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={() => handleEdit(form._id)}
-                              className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs font-medium hover:bg-orange-500/30 rounded-lg transition"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {forms.map((form) => {
+                      const fields = getFormDisplayFields(form);
+                      return (
+                        <tr key={form._id} className="hover:bg-white/5 transition">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-medium text-orange-400">
+                              {fields.formNo}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-white/90">
+                              {fields.revisionNo}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-white/90">
+                              {formatDate(fields.issueDate)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-white/90">
+                              {fields.vessel || '—'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-white/90">
+                              {fields.location || '—'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                onClick={() => handleView(form._id)}
+                                className="px-3 py-1.5 bg-blue-500/20 text-blue-300 text-xs font-medium hover:bg-blue-500/30 rounded-lg transition"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleEdit(form._id)}
+                                className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs font-medium hover:bg-orange-500/30 rounded-lg transition"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

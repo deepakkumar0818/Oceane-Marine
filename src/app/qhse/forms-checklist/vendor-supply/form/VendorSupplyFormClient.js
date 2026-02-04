@@ -126,7 +126,7 @@ function VendorSupplyFormContent() {
         if (!res.ok) {
           throw new Error(data.error || "Failed to load forms");
         }
-        const record = (data.data || []).find((f) => f._id === id);
+        const record = (data.data || []).find((f) => String(f._id) === String(id));
         if (!record) {
           throw new Error("Draft not found");
         }

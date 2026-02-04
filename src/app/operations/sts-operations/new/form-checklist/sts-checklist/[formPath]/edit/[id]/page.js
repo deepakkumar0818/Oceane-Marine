@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useParams, usePathname } from "next/navigation";
+// OPS-OFD-014 Equipment Checklist row defaults (external-form layout)
+const OPS014_FENDER_ROW = { fenderId: "", endPlates: "", bShackle: "", swivel: "", secondShackle: "", mooringShackle: "", fenderBody: "", tires: "", pressure: "" };
+const OPS014_HOSE_ROW = { hoseId: "", endFlanges: "", bodyCondition: "", nutsBolts: "", markings: "" };
+const OPS014_OTHER_ROW = { equipmentId: "", gaskets: "", ropes: "", wires: "", billyPugh: "", liftingStrops: "" };
 
 const sidebarTabs = [
   {
@@ -83,6 +87,38 @@ const FORM_TITLES = {
 
 const API_BASE_URL = '/api/operations/sts-checklist';
 
+const SKIP_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy'];
+const SKIP_HEADER_FIELDS = ['formNo', 'revisionNo', 'revisionDate', 'issueDate', 'approvedBy', 'page', 'status'];
+const SIGNATURE_KEYS = ['signature', 'signatureImage', 'signatureBlock', 'constantHeadingShip', 'manoeuvringShip'];
+
+function labelFromKey(key) {
+  const label = key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (s) => s.toUpperCase())
+    .trim();
+  if (key === 'signatureBlock') return 'Signature';
+  if (key === 'constantHeadingShip') return 'Constant Heading Ship or Berthed Ship';
+  if (key === 'manoeuvringShip') return 'Manoeuvring Ship or Outer Ship';
+  return label;
+}
+
+function isChecklistArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return false;
+  const first = arr[0];
+  return typeof first === 'object' && first !== null && ('description' in first || 'clNumber' in first);
+}
+
+function formatDateOnly(dateString) {
+  if (!dateString) return 'N/A';
+  try {
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return String(dateString);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return String(dateString);
+  }
+}
+
 export default function EditFormPage() {
   const router = useRouter();
   const params = useParams();
@@ -126,7 +162,7 @@ export default function EditFormPage() {
       const result = await response.json();
 
       if (result.success) {
-        const form = result.data.find((f) => f._id === id);
+        const form = result.data.find((f) => String(f._id) === String(id));
         if (form) {
           setFormData(form);
         } else {
@@ -223,15 +259,69 @@ export default function EditFormPage() {
     }
   };
 
+  // OPS-OFD-014 Equipment Checklist: add/remove row handlers (external-form layout)
+  const handleAddFenderRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      fenderEquipment: [...(prev.fenderEquipment || []), { ...OPS014_FENDER_ROW }],
+    }));
+  };
+  const handleRemoveFenderRow = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      fenderEquipment: (prev.fenderEquipment || []).filter((_, i) => i !== index),
+    }));
+  };
+  const handleAddHoseRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      hoseEquipment: [...(prev.hoseEquipment || []), { ...OPS014_HOSE_ROW }],
+    }));
+  };
+  const handleRemoveHoseRow = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      hoseEquipment: (prev.hoseEquipment || []).filter((_, i) => i !== index),
+    }));
+  };
+  const handleAddOtherEquipmentRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      otherEquipment: [...(prev.otherEquipment || []), { ...OPS014_OTHER_ROW }],
+    }));
+  };
+  const handleRemoveOtherEquipmentRow = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      otherEquipment: (prev.otherEquipment || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  // OPS-OFD-018 Timesheet: add/remove additional activity row
+  const OPS018_ADDITIONAL_ROW = { activityName: "", fromDate: "", fromTime: "", toDate: "", toTime: "", remarks: "" };
+  const handleAddAdditionalActivityRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalActivities: [...(prev.additionalActivities || []), { ...OPS018_ADDITIONAL_ROW }],
+    }));
+  };
+  const handleRemoveAdditionalActivityRow = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalActivities: (prev.additionalActivities || []).filter((_, i) => i !== index),
+    }));
+  };
+
   const renderEditableField = (label, path, value, type = 'text') => {
     const displayPath = path.split('.').pop();
-    
+    const displayLabel = label || displayPath.replace(/([A-Z])/g, ' $1').trim();
+
     if (type === 'date') {
       const dateValue = value ? new Date(value).toISOString().split('T')[0] : '';
       return (
         <div className="mb-4">
-          <label className="block text-sm font-medium text-white/80 mb-1 capitalize">
-            {label || displayPath.replace(/([A-Z])/g, ' $1').trim()}
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            {displayLabel}
           </label>
           <input
             type="date"
@@ -246,8 +336,8 @@ export default function EditFormPage() {
     if (type === 'textarea') {
       return (
         <div className="mb-4">
-          <label className="block text-sm font-medium text-white/80 mb-1 capitalize">
-            {label || displayPath.replace(/([A-Z])/g, ' $1').trim()}
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            {displayLabel}
           </label>
           <textarea
             value={value || ''}
@@ -262,8 +352,8 @@ export default function EditFormPage() {
     if (type === 'select') {
       return (
         <div className="mb-4">
-          <label className="block text-sm font-medium text-white/80 mb-1 capitalize">
-            {label || displayPath.replace(/([A-Z])/g, ' $1').trim()}
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            {displayLabel}
           </label>
           <select
             value={value || ''}
@@ -283,8 +373,8 @@ export default function EditFormPage() {
 
     return (
       <div className="mb-4">
-        <label className="block text-sm font-medium text-white/80 mb-1 capitalize">
-          {label || displayPath.replace(/([A-Z])/g, ' $1').trim()}
+        <label className="block text-sm font-medium text-gray-300 mb-1">
+          {displayLabel}
         </label>
         <input
           type={type}
@@ -296,87 +386,503 @@ export default function EditFormPage() {
     );
   };
 
-  const renderEditableObject = (obj, prefix = '') => {
+  const renderEditableChecklistTable = (path, data) => {
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const hasCl = data.some((r) => typeof r === 'object' && r !== null && ('clNumber' in r || 'id' in r));
+    const hasStatus = data.some((r) => typeof r === 'object' && r !== null && 'status' in r);
+    const hasRemarks = data.some((r) => typeof r === 'object' && r !== null && ('remarks' in r || 'userRemark' in r));
+    return (
+      <div className="overflow-x-auto my-2">
+        <table className="w-full border-collapse border border-gray-600">
+          <thead>
+            <tr className="bg-gray-700">
+              {hasCl && <th className="border border-gray-600 p-2 text-center w-14">CL</th>}
+              <th className="border border-gray-600 p-2 text-left">Description</th>
+              {hasStatus && <th className="border border-gray-600 p-2 text-center w-24">Status</th>}
+              {hasRemarks && <th className="border border-gray-600 p-2 text-left">Remarks</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, idx) => (
+              <tr key={idx} className="hover:bg-gray-700/50">
+                {hasCl && (
+                  <td className="border border-gray-600 p-1">
+                    <input
+                      type="text"
+                      value={row.clNumber ?? row.id ?? ''}
+                      onChange={(e) => {
+                        const base = path + '.' + idx;
+                        handleInputChange(base + '.clNumber', e.target.value);
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-center text-sm"
+                    />
+                  </td>
+                )}
+                <td className="border border-gray-600 p-1">
+                  <input
+                    type="text"
+                    value={row.description ?? ''}
+                    onChange={(e) => handleInputChange(path + '.' + idx + '.description', e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-sm"
+                  />
+                </td>
+                {hasStatus && (
+                  <td className="border border-gray-600 p-1">
+                    <input
+                      type="text"
+                      value={row.status ?? ''}
+                      onChange={(e) => handleInputChange(path + '.' + idx + '.status', e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-center text-sm"
+                    />
+                  </td>
+                )}
+                {hasRemarks && (
+                  <td className="border border-gray-600 p-1">
+                    <input
+                      type="text"
+                      value={row.remarks ?? row.userRemark ?? ''}
+                      onChange={(e) => {
+                        handleInputChange(path + '.' + idx + '.remarks', e.target.value);
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-sm"
+                    />
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderEditableSignatureBlock = (path, value) => {
+    if (!value || typeof value !== 'object') return null;
+    return (
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <label className="text-gray-400 block mb-1">Name</label>
+          <input
+            type="text"
+            value={value.name ?? ''}
+            onChange={(e) => handleInputChange(path + '.name', e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white"
+          />
+        </div>
+        <div>
+          <label className="text-gray-400 block mb-1">Rank</label>
+          <input
+            type="text"
+            value={value.rank ?? ''}
+            onChange={(e) => handleInputChange(path + '.rank', e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white"
+          />
+        </div>
+        <div>
+          <label className="text-gray-400 block mb-1">Date</label>
+          <input
+            type="date"
+            value={value.date ? new Date(value.date).toISOString().split('T')[0] : ''}
+            onChange={(e) => handleInputChange(path + '.date', e.target.value ? new Date(e.target.value).toISOString() : '')}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white"
+          />
+        </div>
+        <div>
+          <label className="text-gray-400 block mb-1">Time</label>
+          <input
+            type="text"
+            value={value.time ?? ''}
+            onChange={(e) => handleInputChange(path + '.time', e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white"
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderEditableObject = (obj, prefix = '', isTopLevel = false, parentLabel = '') => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
 
-    const skipFields = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'signature', 'signatureBlock', 'signatureImage', 'stampImage', 'shipStampImage', 'mooringMasterSignature'];
-    
+    const skipSet = new Set([...SKIP_FIELDS, ...(isTopLevel ? SKIP_HEADER_FIELDS : [])]);
+    const visibleKeys = Object.keys(obj).filter((k) => !skipSet.has(k));
+    const useParentLabelForSingleKey = parentLabel && visibleKeys.length === 1;
+
     return Object.entries(obj).map(([key, value]) => {
-      if (skipFields.includes(key)) return null;
-      
+      if (skipSet.has(key)) return null;
+
       const path = prefix ? `${prefix}.${key}` : key;
-      
+      const label = useParentLabelForSingleKey ? parentLabel : labelFromKey(key);
+      const sectionClass = 'border-b border-gray-600 pb-3';
+      const labelClass = 'font-semibold text-gray-300 mb-1 text-sm';
+      const sectionLabel = parentLabel ? parentLabel : label;
+
+      if (key === 'signatureBlock' && value && typeof value === 'object') {
+        return (
+          <div key={key} className={sectionClass}>
+            <div className={labelClass}>{label}</div>
+            <div className="mt-2">{renderEditableSignatureBlock(path, value)}</div>
+          </div>
+        );
+      }
+      if ((key === 'constantHeadingShip' || key === 'manoeuvringShip') && value && typeof value === 'object') {
+        return (
+          <div key={key} className="bg-gray-700/50 p-4 rounded border border-gray-600">
+            <h4 className={`${labelClass} border-b border-gray-600 pb-2`}>{label}</h4>
+            <div className="mt-3">{renderEditableSignatureBlock(path, value)}</div>
+          </div>
+        );
+      }
+
       if (value === null || value === undefined) {
-        return renderEditableField(key, path, '', 'text');
+        return (
+          <div key={key} className={sectionClass}>
+            {renderEditableField(label, path, '', 'text')}
+          </div>
+        );
       }
-      
+
       if (typeof value === 'string') {
-        if (value.match(/^\d{4}-\d{2}-\d{2}/)) {
-          return renderEditableField(key, path, value, 'date');
-        }
-        if (value.length > 100) {
-          return renderEditableField(key, path, value, 'textarea');
-        }
-        return renderEditableField(key, path, value, 'text');
+        const isDate = value.match(/^\d{4}-\d{2}-\d{2}/);
+        const isLong = value.length > 100;
+        return (
+          <div key={key} className={sectionClass}>
+            {renderEditableField(label, path, value, isDate ? 'date' : isLong ? 'textarea' : 'text')}
+          </div>
+        );
       }
-      
+
       if (typeof value === 'number') {
-        return renderEditableField(key, path, value, 'number');
+        return (
+          <div key={key} className={sectionClass}>
+            {renderEditableField(label, path, value, 'number')}
+          </div>
+        );
       }
-      
+
       if (typeof value === 'boolean') {
         return (
-          <div key={key} className="mb-4">
-            <label className="flex items-center gap-2">
+          <div key={key} className={sectionClass}>
+            <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={value}
                 onChange={(e) => handleInputChange(path, e.target.checked)}
                 className="w-4 h-4"
               />
-              <span className="text-sm font-medium text-white/80 capitalize">
-                {key.replace(/([A-Z])/g, ' $1').trim()}
-              </span>
+              <span className={`text-sm ${labelClass}`}>{label}</span>
             </label>
           </div>
         );
       }
-      
+
       if (Array.isArray(value)) {
+        if (isChecklistArray(value)) {
+          return (
+            <div key={key} className={sectionClass}>
+              <div className={labelClass}>{label}</div>
+              {renderEditableChecklistTable(path, value)}
+            </div>
+          );
+        }
+        const arraySectionTitle = sectionLabel + ' (' + value.length + ' items)';
+        const itemLabel = (idx) => sectionLabel + ' ' + (idx + 1);
         return (
-          <div key={key} className="mb-6 border border-white/10 rounded p-4">
-            <h3 className="text-lg font-semibold text-orange-400 mb-4 capitalize">
-              {key.replace(/([A-Z])/g, ' $1').trim()} ({value.length} items)
-            </h3>
-            {value.map((item, index) => (
-              <div key={index} className="mb-4 border-l-2 border-white/20 pl-4">
-                <div className="text-xs text-white/50 mb-2 font-semibold">Item {index + 1}</div>
-                {typeof item === 'object' && item !== null && !Array.isArray(item)
-                  ? renderEditableObject(item, `${path}.${index}`)
-                  : typeof item === 'object' && Array.isArray(item)
-                  ? (
-                    <div className="text-white/50 text-sm">Nested arrays not editable</div>
-                  )
-                  : renderEditableField(`${key}[${index}]`, `${path}.${index}`, item)}
-              </div>
-            ))}
+          <div key={key} className={sectionClass}>
+            <div className={labelClass}>{arraySectionTitle}</div>
+            <div className="space-y-2 mt-2">
+              {value.map((item, index) => (
+                <div key={index} className="ml-4 border-l-2 border-gray-600 pl-4">
+                  {typeof item === 'object' && item !== null && !Array.isArray(item) ? (
+                    <>
+                      <div className="text-xs text-gray-400 mb-2 font-semibold">{sectionLabel} {index + 1}</div>
+                      {renderEditableObject(item, `${path}.${index}`, false, itemLabel(index))}
+                    </>
+                  ) : typeof item === 'object' && Array.isArray(item) ? (
+                    <div className="text-gray-400 text-sm">Nested arrays not editable</div>
+                  ) : (
+                    renderEditableField(itemLabel(index), `${path}.${index}`, item, 'text')
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         );
       }
-      
+
       if (typeof value === 'object') {
         return (
-          <div key={key} className="mb-6 border border-white/10 rounded p-4">
-            <h3 className="text-lg font-semibold text-orange-400 mb-4 capitalize">
-              {key.replace(/([A-Z])/g, ' $1').trim()}
-            </h3>
-            {renderEditableObject(value, path)}
+          <div key={key} className={sectionClass}>
+            <div className={labelClass}>{label}</div>
+            <div className="ml-0 mt-2">{renderEditableObject(value, path, false, label)}</div>
           </div>
         );
       }
-      
+
       return null;
     }).filter(Boolean);
+  };
+
+  // OPS-OFD-014 Equipment Checklist: edit body matching external form (Job Info + 3 tables + add/remove row + Remarks + Signature)
+  const renderOPSOFD014EditBody = () => {
+    const job = formData?.jobInfo || {};
+    const fender = formData?.fenderEquipment || [];
+    const hose = formData?.hoseEquipment || [];
+    const other = formData?.otherEquipment || [];
+    const remarks = formData?.remarks ?? '';
+    const signature = formData?.signatureBlock?.mooringMasterSignature;
+    const inputClass = 'w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-sm';
+    const inputClassId = 'w-full bg-gray-700 border border-gray-500 rounded px-2 py-1 text-white text-sm';
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Job Information</h2>
+          <div className="grid grid-cols-5 gap-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Job #</label>
+              <input type="text" value={job.jobNumber ?? ''} onChange={(e) => handleInputChange('jobInfo.jobNumber', e.target.value)} className={inputClass} placeholder="Job Reference" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Date</label>
+              <input type="date" value={job.date ? new Date(job.date).toISOString().split('T')[0] : ''} onChange={(e) => handleInputChange('jobInfo.date', e.target.value ? new Date(e.target.value).toISOString() : '')} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Time</label>
+              <input type="text" value={job.time ?? ''} onChange={(e) => handleInputChange('jobInfo.time', e.target.value)} className={inputClass} placeholder="HH:MM" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Mooring Master</label>
+              <input type="text" value={job.mooringMasterName ?? ''} onChange={(e) => handleInputChange('jobInfo.mooringMasterName', e.target.value)} className={inputClass} placeholder="Name" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Location</label>
+              <input type="text" value={job.location ?? ''} onChange={(e) => handleInputChange('jobInfo.location', e.target.value)} className={inputClass} placeholder="Location" />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-4 items-center">
+            <span className="text-sm text-gray-400">Operation Phase</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="operationPhase" value="BEFORE_OPERATION" checked={(job.operationPhase || 'BEFORE_OPERATION') === 'BEFORE_OPERATION'} onChange={(e) => handleInputChange('jobInfo.operationPhase', e.target.value)} className="w-4 h-4" />
+              <span className="text-sm">Before Operation</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="operationPhase" value="AFTER_OPERATION" checked={job.operationPhase === 'AFTER_OPERATION'} onChange={(e) => handleInputChange('jobInfo.operationPhase', e.target.value)} className="w-4 h-4" />
+              <span className="text-sm">After Operation</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Fender Equipment Checklist</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-center bg-gray-600">Fender ID #</th>
+                  <th className="border border-gray-600 p-3 text-center">End Plates</th>
+                  <th className="border border-gray-600 p-3 text-center">B. Shackle</th>
+                  <th className="border border-gray-600 p-3 text-center">Swivel</th>
+                  <th className="border border-gray-600 p-3 text-center">2nd Shackle</th>
+                  <th className="border border-gray-600 p-3 text-center">Mooring Shackle</th>
+                  <th className="border border-gray-600 p-3 text-center">Fender Body</th>
+                  <th className="border border-gray-600 p-3 text-center">Tires</th>
+                  <th className="border border-gray-600 p-3 text-center">Pressure</th>
+                  <th className="border border-gray-600 p-3 text-center w-20">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fender.map((row, index) => (
+                  <tr key={index} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.fenderId ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.fenderId`, e.target.value)} className={inputClassId} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.endPlates ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.endPlates`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.bShackle ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.bShackle`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.swivel ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.swivel`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.secondShackle ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.secondShackle`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.mooringShackle ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.mooringShackle`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.fenderBody ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.fenderBody`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.tires ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.tires`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.pressure ?? ''} onChange={(e) => handleInputChange(`fenderEquipment.${index}.pressure`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2 text-center">{fender.length > 1 && <button type="button" onClick={() => handleRemoveFenderRow(index)} className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs">Remove</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onClick={handleAddFenderRow} className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm">+ Add Row</button>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Hose Equipment Checklist</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-center bg-gray-600">Hose ID #</th>
+                  <th className="border border-gray-600 p-3 text-center">End Flanges</th>
+                  <th className="border border-gray-600 p-3 text-center">Body Condition</th>
+                  <th className="border border-gray-600 p-3 text-center">Nuts/Bolts</th>
+                  <th className="border border-gray-600 p-3 text-center">Markings</th>
+                  <th className="border border-gray-600 p-3 text-center w-20">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hose.map((row, index) => (
+                  <tr key={index} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.hoseId ?? ''} onChange={(e) => handleInputChange(`hoseEquipment.${index}.hoseId`, e.target.value)} className={inputClassId} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.endFlanges ?? ''} onChange={(e) => handleInputChange(`hoseEquipment.${index}.endFlanges`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.bodyCondition ?? ''} onChange={(e) => handleInputChange(`hoseEquipment.${index}.bodyCondition`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.nutsBolts ?? ''} onChange={(e) => handleInputChange(`hoseEquipment.${index}.nutsBolts`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.markings ?? ''} onChange={(e) => handleInputChange(`hoseEquipment.${index}.markings`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2 text-center">{hose.length > 1 && <button type="button" onClick={() => handleRemoveHoseRow(index)} className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs">Remove</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onClick={handleAddHoseRow} className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm">+ Add Row</button>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Other Equipment Checklist</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-center bg-gray-600">Other Equipment ID #</th>
+                  <th className="border border-gray-600 p-3 text-center">Gaskets</th>
+                  <th className="border border-gray-600 p-3 text-center">Ropes</th>
+                  <th className="border border-gray-600 p-3 text-center">Wires</th>
+                  <th className="border border-gray-600 p-3 text-center">Billy Pugh</th>
+                  <th className="border border-gray-600 p-3 text-center">Lifting Strops</th>
+                  <th className="border border-gray-600 p-3 text-center w-20">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {other.map((row, index) => (
+                  <tr key={index} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.equipmentId ?? ''} onChange={(e) => handleInputChange(`otherEquipment.${index}.equipmentId`, e.target.value)} className={inputClassId} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.gaskets ?? ''} onChange={(e) => handleInputChange(`otherEquipment.${index}.gaskets`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.ropes ?? ''} onChange={(e) => handleInputChange(`otherEquipment.${index}.ropes`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.wires ?? ''} onChange={(e) => handleInputChange(`otherEquipment.${index}.wires`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.billyPugh ?? ''} onChange={(e) => handleInputChange(`otherEquipment.${index}.billyPugh`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.liftingStrops ?? ''} onChange={(e) => handleInputChange(`otherEquipment.${index}.liftingStrops`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2 text-center">{other.length > 1 && <button type="button" onClick={() => handleRemoveOtherEquipmentRow(index)} className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs">Remove</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onClick={handleAddOtherEquipmentRow} className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm">+ Add Row</button>
+        </div>
+        <div className="grid grid-cols-2 gap-6 border-t border-gray-600 pt-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Signature of Mooring Master</label>
+            <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => handleInputChange('signatureBlock.mooringMasterSignature', reader.result); reader.readAsDataURL(file); } }} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-orange-600 file:text-white hover:file:bg-orange-700 cursor-pointer" />
+            {signature && <div className="mt-2"><img src={signature} alt="Signature" className="max-w-full max-h-32 border border-gray-600 rounded object-contain bg-white p-2" /><button type="button" onClick={() => handleInputChange('signatureBlock.mooringMasterSignature', '')} className="mt-2 text-sm text-red-400 hover:text-red-300">Remove Signature</button></div>}
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Remarks</label>
+            <textarea value={remarks} onChange={(e) => handleInputChange('remarks', e.target.value)} rows={6} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm" placeholder="Enter remarks..." />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // OPS-OFD-018 Timesheet: edit body matching external form
+  const renderOPSOFD018EditBody = () => {
+    const basic = formData?.basicInfo || {};
+    const opTimings = formData?.operationTimings || [];
+    const additional = formData?.additionalActivities || [];
+    const weather = formData?.weatherDelay || {};
+    const cargo = formData?.cargoInfo || {};
+    const finalRemarks = formData?.finalRemarks ?? "";
+    const inputClass = "w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-sm";
+    const dateVal = (v) => (v ? new Date(v).toISOString().split("T")[0] : "");
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Basic Info</h2>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div><label className="block text-sm text-gray-400 mb-1">STS Superintendent</label><input type="text" value={basic.stsSuperintendent ?? ""} onChange={(e) => handleInputChange("basicInfo.stsSuperintendent", e.target.value)} className={inputClass} /></div>
+            <div><label className="block text-sm text-gray-400 mb-1">Job No.</label><input type="text" value={basic.jobNumber ?? ""} onChange={(e) => handleInputChange("basicInfo.jobNumber", e.target.value)} className={inputClass} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-sm text-gray-400 mb-1">Receiving Vessel</label><input type="text" value={basic.receivingVessel ?? ""} onChange={(e) => handleInputChange("basicInfo.receivingVessel", e.target.value)} className={inputClass} /></div>
+            <div><label className="block text-sm text-gray-400 mb-1">Discharging Vessel</label><input type="text" value={basic.dischargingVessel ?? ""} onChange={(e) => handleInputChange("basicInfo.dischargingVessel", e.target.value)} className={inputClass} /></div>
+            <div><label className="block text-sm text-gray-400 mb-1">Support Craft (Mob/Demob)</label><input type="text" value={basic.supportCraftMobDemob ?? ""} onChange={(e) => handleInputChange("basicInfo.supportCraftMobDemob", e.target.value)} className={inputClass} /></div>
+            <div><label className="block text-sm text-gray-400 mb-1">Location</label><input type="text" value={basic.location ?? ""} onChange={(e) => handleInputChange("basicInfo.location", e.target.value)} className={inputClass} /></div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">STS Operation Timings</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-3 text-left">Activities</th><th colSpan={2} className="border border-gray-600 p-3 text-center">From</th><th colSpan={2} className="border border-gray-600 p-3 text-center">To</th><th className="border border-gray-600 p-3 text-left">Remarks</th></tr>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-2"></th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2"></th></tr>
+              </thead>
+              <tbody>
+                {opTimings.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.activityName ?? ""} onChange={(e) => handleInputChange(`operationTimings.${idx}.activityName`, e.target.value)} className={inputClass} placeholder="Activity" /></td>
+                    <td className="border border-gray-600 p-2"><input type="date" value={dateVal(row.fromDate)} onChange={(e) => handleInputChange(`operationTimings.${idx}.fromDate`, e.target.value ? new Date(e.target.value).toISOString() : "")} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="time" value={row.fromTime ?? ""} onChange={(e) => handleInputChange(`operationTimings.${idx}.fromTime`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="date" value={dateVal(row.toDate)} onChange={(e) => handleInputChange(`operationTimings.${idx}.toDate`, e.target.value ? new Date(e.target.value).toISOString() : "")} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="time" value={row.toTime ?? ""} onChange={(e) => handleInputChange(`operationTimings.${idx}.toTime`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.remarks ?? ""} onChange={(e) => handleInputChange(`operationTimings.${idx}.remarks`, e.target.value)} className={inputClass} placeholder="Remarks" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Additional Activity</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-3 text-left">Activities</th><th colSpan={2} className="border border-gray-600 p-3 text-center">From</th><th colSpan={2} className="border border-gray-600 p-3 text-center">To</th><th className="border border-gray-600 p-3 text-left">Remarks</th><th className="border border-gray-600 p-3 text-center w-20">Action</th></tr>
+                <tr className="bg-gray-700"><th className="border border-gray-600 p-2"></th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2 text-center">Date</th><th className="border border-gray-600 p-2 text-center">Time</th><th className="border border-gray-600 p-2"></th><th className="border border-gray-600 p-2"></th></tr>
+              </thead>
+              <tbody>
+                {additional.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.activityName ?? ""} onChange={(e) => handleInputChange(`additionalActivities.${idx}.activityName`, e.target.value)} className={inputClass} placeholder="Activity" /></td>
+                    <td className="border border-gray-600 p-2"><input type="date" value={dateVal(row.fromDate)} onChange={(e) => handleInputChange(`additionalActivities.${idx}.fromDate`, e.target.value ? new Date(e.target.value).toISOString() : "")} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="time" value={row.fromTime ?? ""} onChange={(e) => handleInputChange(`additionalActivities.${idx}.fromTime`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="date" value={dateVal(row.toDate)} onChange={(e) => handleInputChange(`additionalActivities.${idx}.toDate`, e.target.value ? new Date(e.target.value).toISOString() : "")} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="time" value={row.toTime ?? ""} onChange={(e) => handleInputChange(`additionalActivities.${idx}.toTime`, e.target.value)} className={inputClass} /></td>
+                    <td className="border border-gray-600 p-2"><input type="text" value={row.remarks ?? ""} onChange={(e) => handleInputChange(`additionalActivities.${idx}.remarks`, e.target.value)} className={inputClass} placeholder="Remarks" /></td>
+                    <td className="border border-gray-600 p-2 text-center">{additional.length > 1 && <button type="button" onClick={() => handleRemoveAdditionalActivityRow(idx)} className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white text-xs">Remove</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onClick={handleAddAdditionalActivityRow} className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm">+ Add Row</button>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200 mb-4">Significant Weather Which Caused Delay</h2>
+            <div className="space-y-3">
+              <div><label className="block text-sm text-gray-400 mb-1">Sea</label><input type="text" value={weather.sea ?? ""} onChange={(e) => handleInputChange("weatherDelay.sea", e.target.value)} className={inputClass} /></div>
+              <div><label className="block text-sm text-gray-400 mb-1">Swell</label><input type="text" value={weather.swell ?? ""} onChange={(e) => handleInputChange("weatherDelay.swell", e.target.value)} className={inputClass} /></div>
+              <div><label className="block text-sm text-gray-400 mb-1">Wind</label><input type="text" value={weather.wind ?? ""} onChange={(e) => handleInputChange("weatherDelay.wind", e.target.value)} className={inputClass} /></div>
+              <div><label className="block text-sm text-gray-400 mb-1">Total Exposure Hours</label><input type="number" step="0.01" value={weather.totalExposureHours ?? ""} onChange={(e) => handleInputChange("weatherDelay.totalExposureHours", e.target.value)} className={inputClass} /></div>
+            </div>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200 mb-4">Cargo</h2>
+            <div className="space-y-3">
+              <div><label className="block text-sm text-gray-400 mb-1">Cargo</label><input type="text" value={cargo.cargoName ?? ""} onChange={(e) => handleInputChange("cargoInfo.cargoName", e.target.value)} className={inputClass} /></div>
+              <div><label className="block text-sm text-gray-400 mb-1">Quantity</label><input type="text" value={cargo.cargoQuantity ?? ""} onChange={(e) => handleInputChange("cargoInfo.cargoQuantity", e.target.value)} className={inputClass} /></div>
+              <div><label className="block text-sm text-gray-400 mb-1">Cargo Pumping Time</label><input type="text" value={cargo.cargoPumpingTime ?? ""} onChange={(e) => handleInputChange("cargoInfo.cargoPumpingTime", e.target.value)} className={inputClass} /></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Equipment / Operational / Incident / Delays etc, Remarks</h2>
+          <textarea value={finalRemarks} onChange={(e) => handleInputChange("finalRemarks", e.target.value)} rows={4} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm" placeholder="Enter remarks..." />
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -549,26 +1055,20 @@ export default function EditFormPage() {
         </button>
       )}
 
-      {/* Main Content */}
+      {/* Main Content - same form-style layout as view page */}
       <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-          <header className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <Link
-                href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
-                className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
-              >
-                ← Back to List
-              </Link>
-              <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
-                Operations / Forms & Checklist / STS Checklist
-              </p>
-              <h1 className="text-2xl font-bold text-white">Edit Form</h1>
-              <p className="text-xs text-slate-200 mt-1">
-                Form ID: <span className="font-mono text-orange-400">{id.substring(0, 12)}...</span>
-              </p>
-            </div>
-          </header>
+          <div className="mb-4">
+            <Link
+              href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/list`}
+              className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
+            >
+              ← Back to List
+            </Link>
+            <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
+              Operations / Forms & Checklist / STS Checklist
+            </p>
+          </div>
 
           {success && (
             <div className="bg-green-950/40 border border-green-500/40 rounded-xl px-4 py-3 text-green-200 text-sm font-medium">
@@ -582,17 +1082,37 @@ export default function EditFormPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            {renderEditableField('Status', 'status', formData.status, 'select')}
-
-            <div className="space-y-6">
-              {renderEditableObject(formData)}
+          {/* Form card - same style as view page (external form layout) */}
+          <form onSubmit={handleSubmit} className="max-w-7xl mx-auto bg-gray-800 rounded-lg shadow-2xl p-8 text-white">
+            {/* Header row: logo area, title, form meta (Form No, Issue Date, Approved by) */}
+            <div className="flex justify-between items-start mb-8 border-b border-gray-700 pb-6">
+              <div className="w-48 flex items-center justify-start">
+                <span className="text-gray-500 text-sm font-semibold">OCEANE</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center text-center px-4">
+                <h1 className="text-2xl font-bold mb-2">AT SEA SHIP TO SHIP TRANSFER</h1>
+                <h2 className="text-xl font-semibold text-gray-200">
+                  {FORM_TITLES[formPath] || formPath}
+                </h2>
+                <p className="text-xs text-gray-400 mt-2">Edit form</p>
+              </div>
+              <div className="bg-gray-700 p-4 rounded min-w-[200px] text-sm space-y-1">
+                <div><strong>Form No:</strong> {(formData?.formNo ?? formData?.documentInfo?.formNo) || '—'}</div>
+                <div><strong>Issue Date:</strong> {formatDateOnly(formData?.issueDate ?? formData?.revisionDate ?? formData?.documentInfo?.issueDate ?? formData?.documentInfo?.revisionDate)}</div>
+                <div><strong>Approved by:</strong> {(formData?.approvedBy ?? formData?.documentInfo?.approvedBy) || '—'}</div>
+              </div>
             </div>
 
-            <div className="mt-8 flex gap-4 justify-end border-t border-white/10 pt-6">
+            {/* Form body: OPS-OFD-014 / OPS-OFD-018 use external-form layout; others use generic render */}
+            <div className="space-y-6">
+              {formPath === 'ops-ofd-014' ? renderOPSOFD014EditBody() : formPath === 'ops-ofd-018' ? renderOPSOFD018EditBody() : renderEditableObject(formData, '', true)}
+            </div>
+
+            {/* Action buttons - same style as view page */}
+            <div className="flex gap-4 justify-end mt-8 pt-6 border-t border-gray-700">
               <Link
                 href={`/operations/sts-operations/new/form-checklist/sts-checklist/${formPath}/view/${id}`}
-                className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm font-medium"
+                className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition text-sm font-medium"
               >
                 Cancel
               </Link>

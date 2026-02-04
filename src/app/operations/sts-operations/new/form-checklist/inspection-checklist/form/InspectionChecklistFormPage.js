@@ -92,7 +92,7 @@ export default function InspectionChecklistFormPage() {
           const res = await fetch("/api/operations/form-checklist/inspection-checklist/list");
           const data = await res.json();
           if (res.ok && data.data) {
-            const record = data.data.find((r) => r._id === editId);
+            const record = data.data.find((r) => String(r._id) === String(editId));
             if (record) {
               setExistingRecord(record);
               setForm({

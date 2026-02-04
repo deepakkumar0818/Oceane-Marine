@@ -7,7 +7,7 @@ import path from "node:path";
 export async function GET(req, { params }) {
   await connectDB();
 
-  const { id } = params;
+  const { id } = await params;
   const { searchParams } = new URL(req.url);
   const fileIndex = Number(searchParams.get("fileIndex"));
 

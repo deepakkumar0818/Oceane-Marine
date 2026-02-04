@@ -161,7 +161,7 @@ export default function LocationsPage() {
 
   useEffect(() => {
     if (selectedLocationId && locations.length) {
-      const loc = locations.find((l) => l._id === selectedLocationId);
+      const loc = locations.find((l) => String(l._id) === String(selectedLocationId));
       setSelectedLocationName(loc ? loc.name : "");
     }
   }, [selectedLocationId, locations]);
@@ -278,7 +278,7 @@ export default function LocationsPage() {
   const handleLocationChange = (e) => {
     const id = e.target.value;
     setSelectedLocationId(id);
-    const loc = locations.find((l) => l._id === id);
+    const loc = locations.find((l) => String(l._id) === String(id));
     setSelectedLocationName(loc ? loc.name : "");
   };
 

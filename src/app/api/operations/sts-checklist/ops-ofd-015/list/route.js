@@ -40,10 +40,31 @@ export async function GET(req) {
       query.status = status;
     }
 
-    const logs = await STSHourlyQuantityLog.find(query)
+    let logs = await STSHourlyQuantityLog.find(query)
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Backfill documentInfo.revisionNo for docs created before revision was added (oldest = 1.0, next = 2.0, ...)
+    const byCreatedAsc = [...logs].reverse();
+    const withRevisions = logs.map((log) => {
+      const hasRevision = log.documentInfo?.revisionNo != null && String(log.documentInfo.revisionNo).trim() !== "";
+      if (hasRevision) return log;
+      const index = byCreatedAsc.findIndex((l) => String(l._id) === String(log._id));
+      const revisionNo = index >= 0 ? `${index + 1}.0` : "1.0";
+      return {
+        ...log,
+        documentInfo: {
+          ...(log.documentInfo || {}),
+          formNo: log.documentInfo?.formNo || "OPS-OFD-015",
+          revisionNo,
+          issueDate: log.documentInfo?.issueDate,
+          approvedBy: log.documentInfo?.approvedBy,
+        },
+      };
+    });
+
+    logs = withRevisions;
 
     // Get available years
     const allLogs = await STSHourlyQuantityLog.find({
