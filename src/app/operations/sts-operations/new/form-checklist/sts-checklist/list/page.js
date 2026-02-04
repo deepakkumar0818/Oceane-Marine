@@ -22,7 +22,7 @@ const sidebarTabs = [
       {
         key: "sts-checklist",
         label: "STS Checklist",
-        href: "/operations/sts-operations/new/form-checklist/sts-checklist/form",
+        href: "/operations/sts-operations/new/form-checklist/sts-checklist",
       },
       {
         key: "jpo",
@@ -63,107 +63,35 @@ const sidebarTabs = [
   },
 ];
 
-function formatDate(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function getYears() {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let i = currentYear - 2; i < currentYear; i++) years.push(i);
-  for (let i = currentYear; i <= currentYear + 5; i++) years.push(i);
-  return years;
-}
+const FORMS = [
+  { formNo: 'OPS-OFD-001', title: 'Before Operation Commence', apiPath: 'ops-ofd-001' },
+  { formNo: 'OPS-OFD-001A', title: 'Ship Standard Questionnaire', apiPath: 'ops-ofd-001a' },
+  { formNo: 'OPS-OFD-002', title: 'Before Run In & Mooring', apiPath: 'ops-ofd-002' },
+  { formNo: 'OPS-OFD-003', title: 'Before Cargo Transfer (3A & 3B)', apiPath: 'ops-ofd-003' },
+  { formNo: 'OPS-OFD-004', title: 'Pre-Transfer Agreements (4A-4F)', apiPath: 'ops-ofd-004' },
+  { formNo: 'OPS-OFD-005', title: 'During Transfer (5A-5C)', apiPath: 'ops-ofd-005' },
+  { formNo: 'OPS-OFD-005B', title: 'Before Disconnection & Unmooring', apiPath: 'ops-ofd-005b' },
+  { formNo: 'OPS-OFD-005C', title: 'Terminal Transfer Checklist', apiPath: 'ops-ofd-005c' },
+  { formNo: 'OPS-OFD-008', title: 'Master Declaration', apiPath: 'ops-ofd-008' },
+  { formNo: 'OPS-OFD-009', title: 'Mooring Master\'s Job Report', apiPath: 'ops-ofd-009' },
+  { formNo: 'OPS-OFD-011', title: 'STS Standing Order', apiPath: 'ops-ofd-011' },
+  { formNo: 'OPS-OFD-014', title: 'Equipment Checklist', apiPath: 'ops-ofd-014' },
+  { formNo: 'OPS-OFD-015', title: 'Hourly Quantity Log', apiPath: 'ops-ofd-015' },
+  { formNo: 'OPS-OFD-018', title: 'STS Timesheet', apiPath: 'ops-ofd-018' },
+  { formNo: 'OPS-OFD-029', title: 'Mooring Master Expense Sheet', apiPath: 'ops-ofd-029' },
+];
 
 export default function StsChecklistListPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const currentYear = new Date().getFullYear();
-  const initialYears = getYears();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("forms");
   const [expandedModules, setExpandedModules] = useState(new Set(["forms"]));
   const sidebarRef = useRef(null);
-  
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [downloading, setDownloading] = useState(null);
-  const [year, setYear] = useState(currentYear);
 
-  const fetchRecords = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const url = year 
-        ? `/api/operations/form-checklist/sts-checklist/list?year=${year}`
-        : "/api/operations/form-checklist/sts-checklist/list";
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load records");
-      }
-      setRecords(data.data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const handleViewList = (apiPath) => {
+    router.push(`/operations/sts-operations/new/form-checklist/sts-checklist/${apiPath}/list`);
   };
-
-  useEffect(() => {
-    fetchRecords();
-  }, [year]);
-
-  const handleDownload = async (record) => {
-    setDownloading(record._id);
-    try {
-      const res = await fetch(
-        `/api/operations/form-checklist/sts-checklist/${record._id}/download`
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to download file");
-      }
-
-      const blob = await res.blob();
-      const url = globalThis.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = record.filePath.split("/").pop() || `sts-checklist-v${record.version}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      globalThis.URL.revokeObjectURL(url);
-      a.remove();
-    } catch (err) {
-      setError(err.message || "Failed to download file");
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-  const handleEdit = (record) => {
-    router.push(`/operations/sts-operations/new/form-checklist/sts-checklist/form?edit=${record._id}`);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-transparent text-white flex">
-        <div className="flex-1 min-w-0 ml-0 md:ml-72">
-          <div className="flex items-center justify-center h-screen">
-            <p className="text-white/60">Loading...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-transparent text-white flex">
@@ -302,134 +230,62 @@ export default function StsChecklistListPage() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 ml-0 md:ml-72">
         <div className="mx-auto max-w-[95%] pl-4 pr-4 py-10 space-y-6">
-        <header className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
-              Operations / Forms & Checklist / STS Checklist
-            </p>
-            <h1 className="text-2xl font-bold text-white">STS Checklist</h1>
-            <p className="text-xs text-slate-200 mt-1">
-              View and manage all STS Checklist records
-            </p>
-          </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-slate-200">
-                Year
-              </span>
-              <select
-                className="rounded-full px-3 py-1 text-xs bg-white/5 border border-white/10 text-white"
-                value={year || ""}
-                onChange={(e) => setYear(Number(e.target.value))}
-              >
-                {initialYears.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="ml-auto inline-flex rounded-xl border border-white/15 bg-white/5 overflow-hidden">
+          <header className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
               <Link
-                href="/operations/sts-operations/new/form-checklist/sts-checklist/form"
-                className="px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
+                href="/operations/sts-operations/new"
+                className="text-xs text-sky-300 hover:text-sky-200 mb-2 inline-block"
               >
-                STS Checklist Form
+                ← Dashboard
               </Link>
-              <Link
-                href="/operations/sts-operations/new/form-checklist/sts-checklist/list"
-                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 transition"
-              >
-                STS Checklist List
-              </Link>
+              <p className="text-xs uppercase tracking-[0.25em] text-sky-300">
+                Operations / Forms & Checklist / STS Checklist
+              </p>
+              <h1 className="text-2xl font-bold text-white">STS Checklist</h1>
+              <p className="text-xs text-slate-200 mt-1">
+                Select a form to view all submitted entries
+              </p>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {error && (
-          <div className="bg-red-950/40 border border-red-500/40 rounded-xl px-4 py-3 text-red-200 text-sm font-medium">
-            {error}
-          </div>
-        )}
-
-        {records.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
-            <p className="text-white/60">No records found for the selected year.</p>
-            <Link
-              href="/operations/sts-operations/new/form-checklist/sts-checklist/form"
-              className="mt-4 inline-block px-6 py-3 rounded-lg bg-sky-500 text-white font-medium hover:bg-sky-600 transition"
-            >
-              Upload New Record
-            </Link>
-          </div>
-        ) : (
+          {/* Forms Table */}
           <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-white/5 border-b border-white/10">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Form Code
+                      Form Number
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Version
+                      Form Title
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Uploaded By
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
-                      Uploaded At
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-white/90 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-white/90 uppercase tracking-wider w-32">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/10">
-                  {records.map((record) => (
-                    <tr key={record._id} className="hover:bg-white/5 transition">
+                  {FORMS.map((form, index) => (
+                    <tr
+                      key={form.formNo}
+                      className="hover:bg-white/5 transition"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-mono text-white">
-                          {record.formCode || "—"}
+                        <span className="text-sm font-mono text-orange-400 font-semibold">
+                          {form.formNo}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">v{record.version}</span>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-white/90">{form.title}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">
-                          {formatDate(record.date)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">
-                          {record.uploadedBy?.name || "—"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90">
-                          {formatDate(record.uploadedAt)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleDownload(record)}
-                            disabled={downloading === record._id}
-                            className="px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 text-xs font-medium hover:bg-sky-500/30 transition disabled:opacity-50"
-                          >
-                            {downloading === record._id ? "Downloading..." : "Download"}
-                          </button>
-                          <button
-                            onClick={() => handleEdit(record)}
-                            className="px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 text-xs font-medium hover:bg-orange-500/30 transition"
-                          >
-                            Update
-                          </button>
-                        </div>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => handleViewList(form.apiPath)}
+                          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-medium transition-colors text-white"
+                        >
+                          View List
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -437,10 +293,8 @@ export default function StsChecklistListPage() {
               </table>
             </div>
           </div>
-        )}
         </div>
       </div>
     </div>
   );
 }
-

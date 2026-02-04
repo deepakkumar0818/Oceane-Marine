@@ -11,7 +11,7 @@ const sidebarTabs = [
     key: "forms",
     label: "Forms and checklist",
     submodules: [
-      { key: "sts-checklist", label: "STS Checklist", href: "/operations/sts-operations/new/form-checklist/sts-checklist/form" },
+      { key: "sts-checklist", label: "STS Checklist", href: "/operations/sts-operations/new/form-checklist/sts-checklist" },
       { key: "jpo", label: "JPO", href: "/operations/sts-operations/new/form-checklist/jpo/form" },
       { key: "quotation", label: "Quotation", href: "/operations/sts-operations/new/form-checklist/quotations/form" },
       { key: "inspection-checklist", label: "Inspection Checklist", href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form" },
