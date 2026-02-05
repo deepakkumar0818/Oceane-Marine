@@ -72,6 +72,7 @@ const FORM_TITLES = {
   'ops-ofd-005': 'OPS-OFD-005 - During Transfer (5A-5C)',
   'ops-ofd-005b': 'OPS-OFD-005B - Before Disconnection & Unmooring',
   'ops-ofd-005c': 'OPS-OFD-005C - Terminal Transfer Checklist',
+  'ops-ofd-005d': 'OPS-OFD-005D - Declaration for STS operations in port & at Terminal',
   'ops-ofd-008': 'OPS-OFD-008 - Master Declaration',
   'ops-ofd-009': 'OPS-OFD-009 - Mooring Master\'s Job Report',
   'ops-ofd-011': 'OPS-OFD-011 - STS Standing Order',
@@ -611,6 +612,82 @@ export default function ViewFormPage() {
     }
   };
 
+  // OPS-OFD-005D Declaration for STS operations in port & at Terminal: external-form layout
+  const renderOPSOFD005DViewBody = () => {
+    const names = formData?.shipTerminalNames || {};
+    const checklist = formData?.declarationChecklist || [];
+    const hours = formData?.repetitiveChecksHours ?? '—';
+    const tb = formData?.terminalBerthedShipSignatory || {};
+    const outer = formData?.outerShipSignatory || {};
+    const term = formData?.terminalSignatory || {};
+    const toDate = (v) => (v ? formatDateOnly(v) : '—');
+    const toTime = (v) => (v != null && v !== '' ? String(v) : '—');
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Terminal Berthed Ship / Outer Ship / Terminal</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div><div className="text-sm text-gray-400 mb-1">Terminal Berthed Ship</div><div className="text-white/90">{names.terminalBerthedShip || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Outer Ship</div><div className="text-white/90">{names.outerShip || '—'}</div></div>
+            <div><div className="text-sm text-gray-400 mb-1">Terminal</div><div className="text-white/90">{names.terminal || '—'}</div></div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Declaration for STS operations in port / at a Terminal</h2>
+          <p className="text-sm text-gray-300 mb-4">The undersigned have checked and agreed the Applicable checklist questions and confirm in the declarations below.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-left">Checklist</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Terminal Berthed Ship</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Outer Ship</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Terminal</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Not Applicable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checklist.length === 0 ? (
+                  <tr><td colSpan={5} className="border border-gray-600 p-3 text-center text-gray-400">No rows</td></tr>
+                ) : checklist.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 text-white/90">{row.label ?? row.checklistId ?? '—'}</td>
+                    <td className="border border-gray-600 p-2 text-center">{row.terminalBerthedShip ? '☑' : '☐'}</td>
+                    <td className="border border-gray-600 p-2 text-center">{row.outerShip ? '☑' : '☐'}</td>
+                    <td className="border border-gray-600 p-2 text-center">{row.terminal ? '☑' : '☐'}</td>
+                    <td className="border border-gray-600 p-2 text-center">{row.notApplicable ? '☑' : '☐'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-sm text-gray-300 mt-4">Repetitive Checks noted in Checklist 5B of the transfer Guide, shall be carried out at intervals of not more than <strong className="text-white/90">{hours}</strong> Hours.</p>
+          <p className="text-sm text-gray-300 mt-2">If the status of any item changes, the other ship should be notified immediately.</p>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Signatories</h2>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="bg-gray-700/50 p-4 rounded border border-gray-600">
+              <div className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Terminal Berthed Ship</div>
+              <div className="text-sm space-y-2"><div><span className="text-gray-400">Name:</span> <span className="text-white/90">{tb.name || '—'}</span></div><div><span className="text-gray-400">Rank:</span> <span className="text-white/90">{tb.rank || '—'}</span></div><div><span className="text-gray-400">Date:</span> <span className="text-white/90">{toDate(tb.date)}</span></div><div><span className="text-gray-400">Time:</span> <span className="text-white/90">{toTime(tb.time)}</span></div></div>
+              <div className="mt-3"><span className="text-gray-400 block mb-1">Signature:</span>{tb.signature && isImageValue(tb.signature) ? <img src={tb.signature} alt="Terminal Berthed Ship Signature" className="max-w-full max-h-24 border border-gray-600 rounded object-contain bg-white" /> : <span className="text-gray-400">—</span>}</div>
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded border border-gray-600">
+              <div className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Outer Ship</div>
+              <div className="text-sm space-y-2"><div><span className="text-gray-400">Name:</span> <span className="text-white/90">{outer.name || '—'}</span></div><div><span className="text-gray-400">Rank:</span> <span className="text-white/90">{outer.rank || '—'}</span></div><div><span className="text-gray-400">Date:</span> <span className="text-white/90">{toDate(outer.date)}</span></div><div><span className="text-gray-400">Time:</span> <span className="text-white/90">{toTime(outer.time)}</span></div></div>
+              <div className="mt-3"><span className="text-gray-400 block mb-1">Signature:</span>{outer.signature && isImageValue(outer.signature) ? <img src={outer.signature} alt="Outer Ship Signature" className="max-w-full max-h-24 border border-gray-600 rounded object-contain bg-white" /> : <span className="text-gray-400">—</span>}</div>
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded border border-gray-600">
+              <div className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Terminal</div>
+              <div className="text-sm space-y-2"><div><span className="text-gray-400">Name:</span> <span className="text-white/90">{term.name || '—'}</span></div><div><span className="text-gray-400">Rank:</span> <span className="text-white/90">{term.rank || '—'}</span></div><div><span className="text-gray-400">Date:</span> <span className="text-white/90">{toDate(term.date)}</span></div><div><span className="text-gray-400">Time:</span> <span className="text-white/90">{toTime(term.time)}</span></div></div>
+              <div className="mt-3"><span className="text-gray-400 block mb-1">Signature:</span>{term.signature && isImageValue(term.signature) ? <img src={term.signature} alt="Terminal Signature" className="max-w-full max-h-24 border border-gray-600 rounded object-contain bg-white" /> : <span className="text-gray-400">—</span>}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-transparent text-white flex">
@@ -834,9 +911,9 @@ export default function ViewFormPage() {
               </div>
             </div>
 
-            {/* Form body: OPS-OFD-014 / OPS-OFD-018 use external-form layout; others use generic render */}
+            {/* Form body: OPS-OFD-014 / OPS-OFD-018 / OPS-OFD-005D use external-form layout; others use generic render */}
             <div className="space-y-6">
-              {formPath === "ops-ofd-014" ? renderOPSOFD014ViewBody() : formPath === "ops-ofd-018" ? renderOPSOFD018ViewBody() : renderFormData(formData)}
+              {formPath === "ops-ofd-014" ? renderOPSOFD014ViewBody() : formPath === "ops-ofd-018" ? renderOPSOFD018ViewBody() : formPath === "ops-ofd-005d" ? renderOPSOFD005DViewBody() : renderFormData(formData)}
             </div>
 
             {/* Action buttons */}

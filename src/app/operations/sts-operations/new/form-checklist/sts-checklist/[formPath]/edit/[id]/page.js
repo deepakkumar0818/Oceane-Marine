@@ -77,6 +77,7 @@ const FORM_TITLES = {
   'ops-ofd-005': 'OPS-OFD-005 - During Transfer (5A-5C)',
   'ops-ofd-005b': 'OPS-OFD-005B - Before Disconnection & Unmooring',
   'ops-ofd-005c': 'OPS-OFD-005C - Terminal Transfer Checklist',
+  'ops-ofd-005d': 'OPS-OFD-005D - Declaration for STS operations in port & at Terminal',
   'ops-ofd-008': 'OPS-OFD-008 - Master Declaration',
   'ops-ofd-009': 'OPS-OFD-009 - Mooring Master\'s Job Report',
   'ops-ofd-011': 'OPS-OFD-011 - STS Standing Order',
@@ -91,6 +92,11 @@ const API_BASE_URL = '/api/operations/sts-checklist';
 const SKIP_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy'];
 const SKIP_HEADER_FIELDS = ['formNo', 'revisionNo', 'revisionDate', 'issueDate', 'approvedBy', 'page', 'status'];
 const SIGNATURE_KEYS = ['signature', 'signatureImage', 'signatureBlock', 'constantHeadingShip', 'manoeuvringShip'];
+
+function isImageValue(value) {
+  if (typeof value !== 'string' || !value) return false;
+  return value.startsWith('data:image') || /^https?:\/\/.+(\.(png|jpg|jpeg|gif|webp)|(\?.*)?)$/i.test(value);
+}
 
 function labelFromKey(key) {
   const label = key
@@ -546,6 +552,33 @@ export default function EditFormPage() {
       }
 
       if (typeof value === 'string') {
+        const isSignature = key === 'signature' || key === 'signatureImage' || key === 'mooringMasterSignature';
+        if (isSignature) {
+          return (
+            <div key={key} className={sectionClass}>
+              <div className={labelClass}>{label}</div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => handleInputChange(path, reader.result);
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-orange-600 file:text-white hover:file:bg-orange-700 cursor-pointer"
+              />
+              {value && isImageValue(value) && (
+                <div className="mt-2">
+                  <img src={value} alt="Signature" className="max-w-full max-h-24 border border-gray-600 rounded object-contain bg-white" />
+                  <button type="button" onClick={() => handleInputChange(path, '')} className="mt-2 text-sm text-red-400 hover:text-red-300">Remove</button>
+                </div>
+              )}
+            </div>
+          );
+        }
         const isDate = value.match(/^\d{4}-\d{2}-\d{2}/);
         const isLong = value.length > 100;
         return (
@@ -889,6 +922,89 @@ export default function EditFormPage() {
     );
   };
 
+  // OPS-OFD-005D Declaration for STS operations in port & at Terminal: external-form edit layout
+  const renderOPSOFD005DEditBody = () => {
+    const names = formData?.shipTerminalNames || {};
+    const checklist = formData?.declarationChecklist || [];
+    const hours = formData?.repetitiveChecksHours ?? '';
+    const tb = formData?.terminalBerthedShipSignatory || {};
+    const outer = formData?.outerShipSignatory || {};
+    const term = formData?.terminalSignatory || {};
+    const inputClass = 'w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-sm';
+    const dateVal = (v) => (v ? new Date(v).toISOString().split('T')[0] : '');
+    const renderSignatory = (path, sig) => (
+      <div className="space-y-3">
+        <div><label className="block text-sm text-gray-400 mb-1">Name</label><input type="text" value={sig.name ?? ''} onChange={(e) => handleInputChange(path + '.name', e.target.value)} className={inputClass} /></div>
+        <div><label className="block text-sm text-gray-400 mb-1">Rank</label><input type="text" value={sig.rank ?? ''} onChange={(e) => handleInputChange(path + '.rank', e.target.value)} className={inputClass} /></div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Signature</label>
+          <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => handleInputChange(path + '.signature', reader.result); reader.readAsDataURL(file); } }} className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-orange-600 file:text-white hover:file:bg-orange-700 cursor-pointer" />
+          {sig.signature && isImageValue(sig.signature) && <div className="mt-2"><img src={sig.signature} alt="Signature" className="max-w-full max-h-24 border border-gray-600 rounded object-contain bg-white" /><button type="button" onClick={() => handleInputChange(path + '.signature', '')} className="mt-2 text-sm text-red-400 hover:text-red-300">Remove</button></div>}
+        </div>
+        <div><label className="block text-sm text-gray-400 mb-1">Date</label><input type="date" value={dateVal(sig.date)} onChange={(e) => handleInputChange(path + '.date', e.target.value ? new Date(e.target.value).toISOString() : '')} className={inputClass} /></div>
+        <div><label className="block text-sm text-gray-400 mb-1">Time</label><input type="text" value={sig.time ?? ''} onChange={(e) => handleInputChange(path + '.time', e.target.value)} className={inputClass} placeholder="HH:MM" /></div>
+      </div>
+    );
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Terminal Berthed Ship / Outer Ship / Terminal</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div><label className="block text-sm text-gray-400 mb-1">Terminal Berthed Ship</label><input type="text" value={names.terminalBerthedShip ?? ''} onChange={(e) => handleInputChange('shipTerminalNames.terminalBerthedShip', e.target.value)} className={inputClass} /></div>
+            <div><label className="block text-sm text-gray-400 mb-1">Outer Ship</label><input type="text" value={names.outerShip ?? ''} onChange={(e) => handleInputChange('shipTerminalNames.outerShip', e.target.value)} className={inputClass} /></div>
+            <div><label className="block text-sm text-gray-400 mb-1">Terminal</label><input type="text" value={names.terminal ?? ''} onChange={(e) => handleInputChange('shipTerminalNames.terminal', e.target.value)} className={inputClass} /></div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Declaration Checklist</h2>
+          <p className="text-sm text-gray-300 mb-4">The undersigned have checked and agreed the Applicable checklist questions and confirm in the declarations below.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-600">
+              <thead>
+                <tr className="bg-gray-700">
+                  <th className="border border-gray-600 p-3 text-left">Checklist</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Terminal Berthed Ship</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Outer Ship</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Terminal</th>
+                  <th className="border border-gray-600 p-3 text-center w-24">Not Applicable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checklist.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-700/50">
+                    <td className="border border-gray-600 p-2 text-white/90 text-sm">{row.label ?? row.checklistId ?? ''}</td>
+                    <td className="border border-gray-600 p-2 text-center"><input type="checkbox" checked={!!row.terminalBerthedShip} onChange={(e) => handleInputChange(`declarationChecklist.${idx}.terminalBerthedShip`, e.target.checked)} className="w-4 h-4" /></td>
+                    <td className="border border-gray-600 p-2 text-center"><input type="checkbox" checked={!!row.outerShip} onChange={(e) => handleInputChange(`declarationChecklist.${idx}.outerShip`, e.target.checked)} className="w-4 h-4" /></td>
+                    <td className="border border-gray-600 p-2 text-center"><input type="checkbox" checked={!!row.terminal} onChange={(e) => handleInputChange(`declarationChecklist.${idx}.terminal`, e.target.checked)} className="w-4 h-4" /></td>
+                    <td className="border border-gray-600 p-2 text-center"><input type="checkbox" checked={!!row.notApplicable} onChange={(e) => handleInputChange(`declarationChecklist.${idx}.notApplicable`, e.target.checked)} className="w-4 h-4" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4"><label className="block text-sm text-gray-400 mb-1">Repetitive Checks at intervals of not more than (Hours)</label><input type="text" value={hours} onChange={(e) => handleInputChange('repetitiveChecksHours', e.target.value)} className={inputClass} placeholder="e.g. 4" /></div>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200 mb-4">Signatories</h2>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="bg-gray-700/50 p-4 rounded border border-gray-600">
+              <div className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Terminal Berthed Ship</div>
+              {renderSignatory('terminalBerthedShipSignatory', tb)}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded border border-gray-600">
+              <div className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Outer Ship</div>
+              {renderSignatory('outerShipSignatory', outer)}
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded border border-gray-600">
+              <div className="font-semibold text-gray-300 mb-3 border-b border-gray-600 pb-2">Terminal</div>
+              {renderSignatory('terminalSignatory', term)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-transparent text-white flex">
@@ -1108,9 +1224,9 @@ export default function EditFormPage() {
               </div>
             </div>
 
-            {/* Form body: OPS-OFD-014 / OPS-OFD-018 use external-form layout; others use generic render */}
+            {/* Form body: OPS-OFD-014 / OPS-OFD-018 / OPS-OFD-005D use external-form layout; others use generic render */}
             <div className="space-y-6">
-              {formPath === 'ops-ofd-014' ? renderOPSOFD014EditBody() : formPath === 'ops-ofd-018' ? renderOPSOFD018EditBody() : renderEditableObject(formData, '', true)}
+              {formPath === 'ops-ofd-014' ? renderOPSOFD014EditBody() : formPath === 'ops-ofd-018' ? renderOPSOFD018EditBody() : formPath === 'ops-ofd-005d' ? renderOPSOFD005DEditBody() : renderEditableObject(formData, '', true)}
             </div>
 
             {/* Action buttons - same style as view page */}
